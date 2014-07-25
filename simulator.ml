@@ -10,7 +10,7 @@ exception Reset_positions
 exception Win
 exception Lose
 
-module Lman = struct
+module L = struct
   type t =
       {
         (* gcc: Gcc.state*)
@@ -27,7 +27,7 @@ module Lman = struct
 
 end
 
-module Ghost = struct
+module G = struct
 
   type t =
       {
@@ -68,8 +68,8 @@ struct
 
   type state =
       {
-        ghosts: Ghost.t array;
-        lambda_man : Lman.t;
+        ghosts: G.t array;
+        lambda_man : L.t;
         mutable tick: int;      (* UTC *)
         mutable pills: int;     (* remaining pills *)
       }
@@ -77,13 +77,13 @@ struct
 
   let reset_positions state =
     let x,y = Map.lambda_man_start in
-    state.lambda_man.x <- x;
-    state.lambda_man.y <- y;
+    state.lambda_man.L.x <- x;
+    state.lambda_man.L.y <- y;
     Array.iteri
       (fun i ghost ->
        let x,y = Map.ghosts_start.(i) in
-       state.ghosts.(i).x <- x;
-       state.ghosts.(i).y <- y;
+       state.ghosts.(i).G.x <- x;
+       state.ghosts.(i).G.y <- y;
       ) state.ghosts
 
   let make_ghc_env x = assert false
@@ -97,15 +97,14 @@ struct
 place. (Note that Lambda-Man and the ghosts do not move every tick,
 only every few ticks; see the ticks section below.)  *)
 
-      if lman.Lman.tick_to_move = state.tick
-      then Lman.move state lman;
+      if lman.L.tick_to_move = state.tick
+      then L.move state lman;
 
       let env = make_ghc_env state in
       Array.iter
         (fun ghost ->
-         let open Ghost in
-         if ghost.tick_to_move = state.tick
-         then move env ghost
+         if ghost.G.tick_to_move = state.tick
+         then G.move env ghost
         ) state.ghosts;
     end;
 
@@ -115,8 +114,8 @@ only every few ticks; see the ticks section below.)  *)
       ()
     end;
     begin
-      let x = lman.x in
-      let y = lman.y in
+      let x = lman.L.x in
+      let y = lman.L.y in
       match get ~x ~y with
       | Content.Pill ->
          state.pills <- state.pills - 1;
@@ -125,7 +124,7 @@ only every few ticks; see the ticks section below.)  *)
         eaten by Lambda-Man and removed from the game. *)
       | Content.PowerPill ->
          set ~x ~y Content.Empty;
-         lman.fright_mode <- Some state.tick
+         lman.L.fright_mode <- Some state.tick
       | Content.Fruit ->
          set ~x ~y Content.Empty;
       | _ -> ()
@@ -138,7 +137,7 @@ details. *)
     begin try
         Array.iter
           (fun ghost ->
-           if lman.Lman.x = ghost.Ghost.x && lman.Lman.y = ghost.Ghost.y
+           if lman.L.x = ghost.G.x && lman.L.y = ghost.G.y
            then
              begin
                (* Check what happens if two lambda-men are eaten at
@@ -155,7 +154,7 @@ eaten, then Lambda-Man wins and the game is over. *)
     if state.pills = 0
     then raise Win;
 
-    if state.lambda_man.lives = 0
+    if state.lambda_man.L.lives = 0
     then raise Lose;
 
     state.tick <- state.tick + 1
