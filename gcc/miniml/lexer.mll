@@ -12,11 +12,13 @@ rule token = parse
   | "true"               { TRUE }
   | "false"               { FALSE }
   | "fun"           { FUN }
+  | "rec"           { REC }
   | "is"            { IS }
   | "if"            { IF }
   | "then"          { THEN }
   | "else"          { ELSE }
-  | "let"           { LET }  
+  | "let"           { LET }
+  | "in"           { IN }
   | ";;"            { SEMICOLON2 }
   | '='             { EQUAL }
   | '<'             { LESS }

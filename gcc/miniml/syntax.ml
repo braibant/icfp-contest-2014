@@ -20,7 +20,8 @@ type expr =
   | Equal of expr * expr 		(* Integer comparison [e1 = e2] *)
   | Less of expr * expr  		(* Integer comparison [e1 < e2] *)
   | If of expr * expr * expr 		(* Conditional [if e1 then e2 else e3] *)
-  | Fun of name * name * ty * ty * expr (* Function [fun f(x:s):t is e] *)
+  | FunRec of name * name * ty * ty * expr (* Function [fun f(x:s):t is e] *)
+  | Fun of name * ty * expr (* Function [fun f(x:s):t is e] *)
   | Apply of expr * expr 		(* Application [e1 e2] *)
 
 (* Toplevel commands *)
@@ -57,9 +58,13 @@ let string_of_expr e =
 	| Less (e1, e2) -> (3, (to_str 3 e1) ^ " < " ^ (to_str 3 e2))
 	| If (e1, e2, e3) -> (2, "if " ^ (to_str 2 e1) ^ " then " ^
 				(to_str 2 e2) ^ " else " ^ (to_str 2 e3))
-	| Fun (f, x, ty1, ty2, e) ->
-	    (1, "fun " ^ f ^ "(" ^ x ^ " : " ^ (string_of_type ty1) ^ 
+	| FunRec (f, x, ty1, ty2, e) ->
+	    (1, "funrec " ^ f ^ "(" ^ x ^ " : " ^ (string_of_type ty1) ^ 
 	       ") : " ^ (string_of_type ty2) ^ " is " ^ (to_str 0 e))
+	| Fun (x, ty1, e) ->
+	    (1, "fun " ^ "(" ^ x ^ " : " ^ (string_of_type ty1) ^ 
+	       ")" ^ " is " ^ (to_str 0 e))
+
     in
       if m > n then str else "(" ^ str ^ ")"
   in
@@ -77,7 +82,10 @@ let rec subst s = function
   | Equal (e1, e2) -> Equal (subst s e1, subst s e2)
   | Less (e1, e2) -> Less (subst s e1, subst s e2)
   | If (e1, e2, e3) -> If (subst s e1, subst s e2, subst s e3)
-  | Fun (f, x, ty1, ty2, e) ->
+  | FunRec (f, x, ty1, ty2, e) ->
       let s' = List.remove_assoc f (List.remove_assoc x s) in
-	Fun (f, x, ty1, ty2, subst s' e)
+	FunRec (f, x, ty1, ty2, subst s' e)
+  | Fun (x, ty1, e) ->
+      let s' = (List.remove_assoc x s) in
+	Fun (x, ty1, subst s' e)
   | Apply (e1, e2) -> Apply (subst s e1, subst s e2)

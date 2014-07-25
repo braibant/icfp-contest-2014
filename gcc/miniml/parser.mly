@@ -13,17 +13,19 @@
 %token TIMES
 %token EQUAL LESS
 %token IF THEN ELSE
-%token FUN IS
+%token FUN REC IS
 %token COLON
 %token LPAREN RPAREN
-%token LET
+%token LET IN
 %token SEMICOLON2
 %token EOF
 
 %start toplevel
 %type <Syntax.toplevel_cmd list> toplevel
 
-%nonassoc FUN IS
+%nonassoc IN
+%nonassoc LET
+%nonassoc FUN REC IS
 %nonassoc IF THEN ELSE
 %nonassoc EQUAL LESS
 %left PLUS MINUS
@@ -42,7 +44,12 @@ toplevel:
   | def SEMICOLON2 toplevel  { $1 :: $3 }
   | expr SEMICOLON2 toplevel { (Expr $1) :: $3 }
 
-def: LET VAR EQUAL expr { Def ($2, $4) }
+def:
+    LET VAR EQUAL expr { Def ($2, $4) }
+  | LET REC VAR LPAREN VAR COLON ty RPAREN COLON ty EQUAL expr
+      { Def($3, FunRec ($3, $5, $7, $10, $12)) }
+  | LET VAR LPAREN VAR COLON ty RPAREN EQUAL expr
+      { Def($2, Fun ($4, $6, $9)) }
 
 expr:
     non_app             { $1 }
@@ -50,7 +57,10 @@ expr:
   | arith               { $1 }
   | boolean             { $1 }
   | IF expr THEN expr ELSE expr	{ If ($2, $4, $6) }
-  | FUN VAR LPAREN VAR COLON ty RPAREN COLON ty IS expr { Fun ($2, $4, $6, $9, $11) }
+  | FUN REC VAR LPAREN VAR COLON ty RPAREN COLON ty IS expr
+      { FunRec ($3, $5, $7, $10, $12) }
+  | LET VAR COLON ty EQUAL expr IN expr
+      { Apply(Fun ($2, $4, $8),$6) }
 
 app:
     app non_app         { Apply ($1, $2) }
@@ -61,7 +71,7 @@ non_app:
   | TRUE                	  { Bool true }
   | FALSE               	  { Bool false }
   | INT		                  { Int $1 }
-  | LPAREN expr RPAREN		  { $2 }    
+  | LPAREN expr RPAREN		  { $2 }
 
 arith:
   | MINUS INT           { Int (-$2) }
