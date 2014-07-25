@@ -1,11 +1,4 @@
-module type MAP =
-  sig
-    val width : int
-    val height: int
-    val data: Map.t
-    val lambda_man_start: int * int
-    val ghosts_start: (int * int) array
-  end
+open Simulator_types
 
 exception Reset_positions
 exception Win
@@ -23,14 +16,7 @@ module Delay = struct
 end
 
 module L = struct
-  type t =
-      {
-        (* gcc: Gcc.state*)
-        mutable x : int;
-        mutable y : int;
-        mutable tick_to_move: int;
-        mutable lives: int;
-      }
+  include Simulator_types.L
 
   let move state lman =
     ()
@@ -39,18 +25,7 @@ end
 
 module G = struct
 
-  type t =
-      {
-        ghc: Ghc.state;
-        mutable x : int;
-        mutable y: int;
-        mutable tick_to_move: int;
-        mutable direction: int;
-        mutable vitality: int;
-
-        index: int;      (* ghost index, between 0 and 3 included *)
-        program_index: int;
-      }
+  include Simulator_types.G
 
   let move environment ghost =
     match Ghc.execute environment ghost.ghc with
@@ -86,6 +61,8 @@ struct
   let _ = assert (100 * (level - 1) < M.width * M.height)
   let _ = assert (M.width * M.height <= 100 * level)
 
+  type state = Simulator_types.state
+
   module Time = struct
     let end_of_lives = 127 * M.width * M.height * 16
 
@@ -96,28 +73,17 @@ struct
     let fright_mode_duration = 127 * 20
   end
 
-  type state =
-      {
-        ghosts: G.t array;
-        lambda_man : L.t;
-        mutable tick: int;      (* UTC *)
-        mutable pills: int;     (* remaining pills *)
-        mutable fright_mode: int option;      (* [Some start_time]
-        means that the fright mode is active since start_time *)
-      }
-
+  let reset_ghost ghost =
+    let x,y = M.ghosts_start.(ghost.G.index) in
+    ghost.G.x <- x;
+    ghost.G.y <- y
 
   let reset_positions state =
     let x,y = M.lambda_man_start in
     state.lambda_man.L.x <- x;
     state.lambda_man.L.y <- y;
     state.lambda_man.L.lives <- state.lambda_man.L.lives - 1;
-    Array.iteri
-      (fun i ghost ->
-       let x,y = M.ghosts_start.(i) in
-       state.ghosts.(i).G.x <- x;
-       state.ghosts.(i).G.y <- y;
-      ) state.ghosts
+    Array.iter (fun ghost -> reset_ghost ghost) state.ghosts
 
   (* Build a GHC environment for a given state *)
   let make_ghc_env state =
@@ -137,7 +103,8 @@ struct
     | Content.Pill | Content.PowerPill | Content.Fruit -> true
     | _ -> false
 
-  let eat_a_ghost _ = assert false
+  let eat_a_ghost lman ghost =
+    reset_ghost ghost
 
   let tick state =
     let lman = state.lambda_man in
