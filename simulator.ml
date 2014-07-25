@@ -35,14 +35,44 @@ module G = struct
 
   include Simulator_types.G
 
+  (* 0 is up; 1 is right; 2 is down; 3 is left. *)
+
+  let walls board x y =
+    [|
+      Board.get board ~x ~y:(y - 1) <> Content.Wall; (* UP *)
+      Board.get board ~x:(x+1) ~y   <> Content.Wall; (* RIGHT *)
+      Board.get board ~x ~y:(y + 1) <> Content.Wall; (* DOWN *)
+      Board.get board ~x:(x-1) ~y   <> Content.Wall; (* LEFT *)
+    |]
+
   let move environment ghost =
-    match Ghc.execute environment ghost.ghc with
-    | None                    (* no new direction *)
-    | Some _ ->                 (* new direction *)
-       assert false
+    let direction = match Ghc.execute environment ghost.ghc with
+      | None -> ghost.direction
+      | Some direction -> direction in
+    let walls = walls environment.Ghc.map ghost.x ghost.y in
+    let direction =
+      if walls.(direction)
+      then direction
+      else if walls.(ghost.direction)
+      then ghost.direction
+      else if walls.(0)
+      then 0
+      else if walls.(1)
+      then 1
+      else if walls.(2)
+      then 2
+      else 3
+    in
+    assert walls.(direction);
+    match direction with
+      | 0 -> ghost.y <- ghost.y - 1
+      | 1 -> ghost.x <- ghost.x + 1
+      | 2 -> ghost.y <- ghost.y + 1
+      | 3 -> ghost.x <- ghost.x - 1
+      | _ -> assert false
 
   let position g =
-         g.x, g.y
+      g.x, g.y
 
   let stats g =
     g.vitality, g.direction
