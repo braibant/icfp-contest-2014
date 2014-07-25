@@ -31,7 +31,8 @@ and type_of ctx = function
   | Plus (e1, e2) -> check ctx TInt e1 ; check ctx TInt e2 ; TInt
   | Minus (e1, e2) -> check ctx TInt e1 ; check ctx TInt e2 ; TInt
   | Equal (e1, e2) -> check ctx TInt e1 ; check ctx TInt e2 ; TBool
-  | Less (e1, e2) -> check ctx TInt e1 ; check ctx TInt e2 ; TBool
+  | GT (e1, e2) -> check ctx TInt e1 ; check ctx TInt e2 ; TBool
+  | GTE (e1, e2) -> check ctx TInt e1 ; check ctx TInt e2 ; TBool
   | If (e1, e2, e3) ->
       check ctx TBool e1 ;
       let ty = type_of ctx e2 in

@@ -19,13 +19,14 @@
 
 open Syntax
 
+(*    
+
 (** A context describing the types of globally defined values. *)
 type context = (name * ty) list
 
 (** An environment describing globally defined values. *)
 type env = (name * Machine.mvalue) list
 
-    
 (** [exec_cmd (ctx, env) cmd] executes the toplevel command [cmd] and
     returns the new context-environment pair and a string representing the
     result of evaluation. *)
@@ -86,28 +87,23 @@ let shell ctx env =
       done 
     with
 	End_of_file -> print_endline "\nGood bye."
-
+*)
 (** The main program. *)
 let main =
-  let noninteractive = ref false in
   let files = ref [] in
     Arg.parse
-      [("-n", Arg.Set noninteractive, "do not run the interactive shell")]
+      []
       (fun f -> files := f :: !files)
       "Usage: miniml [-n] [file] ..." ;
     try
-      let ctx, env =
-	List.fold_left
-	  (fun ce f ->
-	     let fh = open_in f in
-	     let cmds = Parser.toplevel Lexer.token (Lexing.from_channel fh) in
-	       close_in fh ;
-	       exec_cmds ce cmds)
-	  ([],[]) !files
-      in    
-	if not !noninteractive then shell ctx env
+      List.iter (fun f ->
+          let fh = open_in f in
+          let expr = Parser.expr Lexer.token (Lexing.from_channel fh) in
+          let instrs = Compile.compile expr in
+          Format.printf "%a@." Gcc_instr.print_instructions instrs)
+        !files
     with
       | Type_check.Type_error msg -> print_endline ("Type error: " ^ msg)
-      | Machine.Machine_error msg -> print_endline ("Runtime error: " ^ msg)
+      (* | Machine.Machine_error msg -> print_endline ("Runtime error: " ^ msg) *)
       | Failure _ | Parsing.Parse_error -> print_endline "Syntax error."
 

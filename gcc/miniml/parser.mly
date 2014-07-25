@@ -11,7 +11,7 @@
 %token PLUS
 %token MINUS
 %token TIMES
-%token EQUAL LESS
+%token EQUAL LT GT LTE GTE
 %token IF THEN ELSE
 %token FUN REC IS
 %token COLON
@@ -22,6 +22,8 @@
 
 %start toplevel
 %type <Syntax.toplevel_cmd list> toplevel
+%start expr
+%type <Syntax.expr> expr
 
 %nonassoc IN
 %nonassoc LET
@@ -57,8 +59,10 @@ expr:
   | arith               { $1 }
   | boolean             { $1 }
   | IF expr THEN expr ELSE expr	{ If ($2, $4, $6) }
-  | FUN REC VAR LPAREN VAR COLON ty RPAREN COLON ty IS expr
+  | FUN REC VAR LPAREN VAR COLON ty RPAREN COLON ty TARROW expr
       { FunRec ($3, $5, $7, $10, $12) }
+  | FUN LPAREN VAR COLON ty RPAREN TARROW expr
+      { Fun ($3, $5, $8) }
   | LET VAR COLON ty EQUAL expr IN expr
       { Apply(Fun ($2, $4, $8),$6) }
 
@@ -81,7 +85,10 @@ arith:
 
 boolean:
   | expr EQUAL expr { Equal ($1, $3) }
-  | expr LESS expr  { Less ($1, $3) }
+  | expr LT expr  { GT ($3, $1) }
+  | expr LTE expr  { GTE ($3, $1) }
+  | expr GT expr  { GT ($1, $3) }
+  | expr GTE expr  { GT ($1, $3) }
 
 ty:
     TBOOL	 { TBool }

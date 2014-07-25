@@ -21,7 +21,10 @@ rule token = parse
   | "in"           { IN }
   | ";;"            { SEMICOLON2 }
   | '='             { EQUAL }
-  | '<'             { LESS }
+  | '<'             { LT }
+  | "<="            { LTE }
+  | '>'             { GT }
+  | ">="            { GTE }
   | "->"            { TARROW }
   | ':'             { COLON }
   | '('             { LPAREN }

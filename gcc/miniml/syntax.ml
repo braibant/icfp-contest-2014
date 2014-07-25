@@ -18,7 +18,8 @@ type expr =
   | Plus of expr * expr  		(* Sum [e1 + e2] *)
   | Minus of expr * expr 		(* Difference [e1 - e2] *)
   | Equal of expr * expr 		(* Integer comparison [e1 = e2] *)
-  | Less of expr * expr  		(* Integer comparison [e1 < e2] *)
+  | GT of expr * expr   		(* Integer comparison [e1 > e2] *)
+  | GTE of expr * expr   		(* Integer comparison [e1 >= e2] *)
   | If of expr * expr * expr 		(* Conditional [if e1 then e2 else e3] *)
   | FunRec of name * name * ty * ty * expr (* Function [fun f(x:s):t is e] *)
   | Fun of name * ty * expr (* Function [fun f(x:s):t is e] *)
@@ -55,7 +56,8 @@ let string_of_expr e =
 	| Plus (e1, e2) -> (4, (to_str 3 e1) ^ " + " ^ (to_str 4 e2))
 	| Minus (e1, e2) -> (4, (to_str 3 e1) ^ " - " ^ (to_str 4 e2))
 	| Equal (e1, e2) -> (3, (to_str 3 e1) ^ " = " ^ (to_str 3 e2))
-	| Less (e1, e2) -> (3, (to_str 3 e1) ^ " < " ^ (to_str 3 e2))
+	| GT (e1, e2) -> (3, (to_str 3 e1) ^ " > " ^ (to_str 3 e2))
+	| GTE (e1, e2) -> (3, (to_str 3 e1) ^ " >= " ^ (to_str 3 e2))
 	| If (e1, e2, e3) -> (2, "if " ^ (to_str 2 e1) ^ " then " ^
 				(to_str 2 e2) ^ " else " ^ (to_str 2 e3))
 	| FunRec (f, x, ty1, ty2, e) ->
@@ -80,7 +82,8 @@ let rec subst s = function
   | Plus (e1, e2) -> Plus (subst s e1, subst s e2)
   | Minus (e1, e2) -> Minus (subst s e1, subst s e2)
   | Equal (e1, e2) -> Equal (subst s e1, subst s e2)
-  | Less (e1, e2) -> Less (subst s e1, subst s e2)
+  | GT (e1, e2) -> GT (subst s e1, subst s e2)
+  | GTE (e1, e2) -> GTE (subst s e1, subst s e2)
   | If (e1, e2, e3) -> If (subst s e1, subst s e2, subst s e3)
   | FunRec (f, x, ty1, ty2, e) ->
       let s' = List.remove_assoc f (List.remove_assoc x s) in
