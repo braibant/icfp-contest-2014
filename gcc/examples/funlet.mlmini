@@ -1,0 +1,2 @@
+let f : int -> int = (fun (x:int) -> x + 1) in
+f (f 2)
