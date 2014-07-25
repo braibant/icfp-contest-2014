@@ -32,7 +32,35 @@ and _ control_tag =
 | Stop : unit control_tag
 
 type code = instruction array
-and instruction = unit
+and instruction =
+| LDC of int
+| LD of int * int
+| ADD
+| SUB
+| MUL
+| DIV
+| CEQ
+| CGT
+| CGTE
+| ATOM
+| CONS
+| CAR
+| CDR
+| SEL of code_ptr * code_ptr
+| JOIN
+| LDF of code_ptr
+| AP of int
+| RTN
+| DUM of int
+| RAP of int
+| STOP
+| TSEL of code_ptr * code_ptr
+| TAP of int
+| TRAP of int
+| ST of int * int
+(* currently unsupported *)
+| DBUG
+| BRK
 
 type ('a, 'b) tag_error = { expected: 'a; found : 'b; }
 
@@ -93,7 +121,7 @@ let nth : type a . a stack_tag -> a list -> int -> a =
    try List.nth stack n
    with _ -> error (Empty_stack tag)
 
-let push n {s;e;c;d} =
+let ldc n {s;e;c;d} =
   let s = tag Int n :: s in
   let c = next_instr c in
   {s;e;c;d}
@@ -127,21 +155,21 @@ let binop op {s;e;c;d} =
 
 let intop op x y = tag Int (op (untag Int x) (untag Int y))
 
-let add reg = binop (intop (+)) reg
-let sub reg = binop (intop (-)) reg
-let mul reg = binop (intop ( * )) reg
-let div reg =
+let add = binop (intop (+))
+let sub = binop (intop (-))
+let mul = binop (intop ( * ))
+let div =
   let div a b =
     if b = 0 then error Division_by_zero
     else a / b in
-  binop (intop div) reg
+  binop (intop div)
 
 let cmpop cmp = intop (fun x y -> if cmp x y then 1 else 0)
-let ceq reg = binop (cmpop (=))
-let cgt reg = binop (cmpop (>))
-let cgte reg = binop (cmpop (>=))
+let ceq = binop (cmpop (=))
+let cgt = binop (cmpop (>))
+let cgte = binop (cmpop (>=))
 
-let atom reg =
+let atom =
   unop (fun (Value (ty, _)) ->
     match ty with
       | Int -> tag Int 1
@@ -164,14 +192,14 @@ type tail_status =
 | Tail
 | Non_tail
 
-let sel tail t f s =
+let sel tail t f {s;e;c;d} =
   let x, s = pop S s in
   let n = untag Int x in
   let d = match tail with
     | Tail -> d
-    | Nontail -> control_tag Join (next_instr c) :: d in
+    | Non_tail -> control_tag Join (next_instr c) :: d in
   let c = if n = 0 then f else t in
-  { s; e; c; d }
+  {s;e;c;d}
 
 let join {s;e;c;d} =
   let x, d = pop D d in
@@ -197,7 +225,7 @@ let ap tail n {s;e;c;d} =
     frame, !cur_s in
   let d = match tail with
     | Tail -> d
-    | Nontail ->
+    | Non_tail ->
       (* a difference from the spec:
          Ret control slots keep both
          the code pointer and the environment,
@@ -251,7 +279,7 @@ let rap tail n {s;e;c;d} =
     !cur_s in
   let d = match tail with
     | Tail -> d
-    | Nontail -> control_tag Ret (next_instr c, fpp) :: d in
+    | Non_tail -> control_tag Ret (next_instr c, fpp) :: d in
   let e = fp in
   let c = f in
   {s;e;c;d}
@@ -265,3 +293,34 @@ let st n i {s;e;c;d} =
   frame.(i) <- v;
   let c = next_instr c in
   {s;e;c;d}
+
+let step inst = match inst with
+| LDC n -> ldc n
+| LD (n, i) -> ld n i
+| ADD -> add
+| SUB -> sub
+| MUL -> mul
+| DIV -> div
+| CEQ -> ceq
+| CGT -> cgt
+| CGTE -> cgte
+| ATOM -> atom
+| CONS -> cons
+| CAR -> car
+| CDR -> cdr
+| SEL (t, f) -> sel Non_tail t f
+| JOIN -> join
+| LDF f -> ldf f
+| AP n -> ap Non_tail n
+| RTN -> rtn
+| DUM n -> dum n
+| RAP n -> rap Non_tail n
+| STOP -> stop
+| TSEL (t, f) -> sel Tail t f
+| TAP n -> ap Tail n
+| TRAP n -> rap Tail n
+| ST (n, i) -> st n i
+(* currently unsupported *)
+| DBUG -> failwith "instruction DBUG not yet implemented"
+| BRK -> failwith "instruction BRK not yet implemented"
+
