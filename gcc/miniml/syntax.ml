@@ -62,10 +62,10 @@ let string_of_expr e =
 				(to_str 2 e2) ^ " else " ^ (to_str 2 e3))
 	| FunRec (f, x, ty1, ty2, e) ->
 	    (1, "funrec " ^ f ^ "(" ^ x ^ " : " ^ (string_of_type ty1) ^ 
-	       ") : " ^ (string_of_type ty2) ^ " is " ^ (to_str 0 e))
+	       ") : " ^ (string_of_type ty2) ^ " -> " ^ (to_str 0 e))
 	| Fun (x, ty1, e) ->
 	    (1, "fun " ^ "(" ^ x ^ " : " ^ (string_of_type ty1) ^ 
-	       ")" ^ " is " ^ (to_str 0 e))
+	       ")" ^ " -> " ^ (to_str 0 e))
 
     in
       if m > n then str else "(" ^ str ^ ")"

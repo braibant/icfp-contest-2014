@@ -29,13 +29,13 @@
 
 %nonassoc IN
 %nonassoc LET
+%left COLON
+%right TARROW
 %nonassoc FUN REC IS
 %nonassoc IF THEN ELSE
 %nonassoc EQUAL GT GTE LT LTE
 %left PLUS MINUS
 %left TIMES
-%left COLON
-%right TARROW
 
 %%
 /*

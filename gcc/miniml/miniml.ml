@@ -92,11 +92,13 @@ let shell ctx env =
 (** The main program. *)
 let main =
   let print = ref false in
+  let parsetree = ref false in
   let exec  = ref true in
   let files = ref [] in
     Arg.parse
-      ["-print",Set print,"print the asm";
-       "-no-exec",Clear exec,"execute the asm";
+      ["--print",Set print,"print the asm";
+       "--parsetree",Set parsetree,"print the parsetree";
+       "--no-exec",Clear exec,"execute the asm";
       ]
       (fun f -> files := f :: !files)
       "Usage: miniml [-n] [file] ..." ;
@@ -113,6 +115,9 @@ let main =
                 Lexer.report_position (Lexer.loc lexbuf);
               exit 1
           in
+          if !parsetree then
+            Format.printf "%s@." (Syntax.string_of_expr expr);
+          ignore (Type_check.type_of [] expr);
           let instrs = Compile.compile expr in
           if !print then
             Format.printf "%a@." Gcc_instr.print_instructions instrs;
@@ -126,5 +131,7 @@ let main =
       | Type_check.Type_error msg -> print_endline ("Type error: " ^ msg)
     (* | Machine.Machine_error msg -> print_endline ("Runtime error: " ^ msg) *)
       | Failure _ | Parsing.Parse_error -> print_endline "Syntax error."
-      | Gcc.Run_error(error,_) -> Format.eprintf "Gcc Error: %a@."
-                                    Gcc.print_run_error error; exit 1
+      | Gcc.Run_error(error,{Gcc.c=Code c}) ->
+        Format.eprintf "Gcc Error at %i: %a@."
+          c Gcc.print_run_error error; exit 1
+ 
