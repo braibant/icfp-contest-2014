@@ -1,12 +1,3 @@
-module type MAP =
-  sig
-    val width : int
-    val height: int
-    val data: Map.t
-    val lambda_man_start: int * int
-    val ghosts_start: (int * int) array
-  end
-
 module L = struct
   type t =
       {

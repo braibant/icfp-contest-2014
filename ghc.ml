@@ -163,7 +163,7 @@ let execution_cycle env state =
 	   | 7 ->
 	      let x = state.registers.(0) in
 	      let y = state.registers.(1) in
-	      let content = Map.get env.map ~x ~y in
+	      let content = Board.get env.map ~x ~y in
 	      state.registers.(0) <- Content.to_byte content
 	   | 8 -> Printf.eprintf "Debug\n"
 	   | _ -> assert false

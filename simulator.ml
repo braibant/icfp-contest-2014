@@ -1,5 +1,14 @@
 open Simulator_types
 
+module type MAP =
+  sig
+    val width : int
+    val height: int
+    val data: Board.t
+    val lambda_man_start: int * int
+    val ghosts_start: (int * int) array
+  end
+
 exception Reset_positions
 exception Win
 exception Lose
@@ -131,10 +140,10 @@ only every few ticks; see the ticks section below.)  *)
         ) state.ghosts;
     end;
 
-    begin match state.frigth_mode with
+    begin match state.fright_mode with
           | None -> ()
           | Some time -> if time = state.tick then state.fright_mode <- None
-    end
+    end;
 
     begin
       let x = lman.L.x in
@@ -145,7 +154,7 @@ only every few ticks; see the ticks section below.)  *)
          set ~x ~y Content.Empty;
       | Content.PowerPill ->
          set ~x ~y Content.Empty;
-         state.fright_mode <- Some (state.tick + Delay.fright_mode_duration)
+         state.fright_mode <- Some (state.tick + Time.fright_mode_duration)
       | Content.Fruit ->
          set ~x ~y Content.Empty;
       | _ -> ()
