@@ -6,7 +6,6 @@ let nreg= 8
 exception Not_lvalue
 exception Halt
 
-
 type byte = Byte.t
 
 type argument =
@@ -174,12 +173,18 @@ let execution_cycle env state =
 
 let execute interrupts state =
   let i = ref 0 in
-  try
-    state.pc <- 0;
-    state.direction <- None;
-    while !i < 1024 do
-      let pc = state.pc in
-      execution_cycle interrupts state;
-      if state.pc = pc then state.pc <- state.pc + 1
-    done
-  with Halt -> ()
+  begin
+    try
+      state.pc <- 0;
+      state.direction <- None;
+      while !i < 1024 do
+        let pc = state.pc in
+        execution_cycle interrupts state;
+        if state.pc = pc then state.pc <- state.pc + 1
+      done
+    with Halt | Not_lvalue -> ();
+  end;
+
+  match state.direction with
+  | Some i when 0 <= i && i < 4 -> Some i
+  | None | Some _ -> None

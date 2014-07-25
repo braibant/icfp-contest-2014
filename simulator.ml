@@ -18,6 +18,8 @@ module Delay = struct
 
   let ghost = [| 	130; 132; 134; 136 |]
   let ghost_fright = [| 195; 198; 201; 204 |]
+
+  let fright_mode_duration = 127 * 20
 end
 
 module L = struct
@@ -28,8 +30,6 @@ module L = struct
         mutable y : int;
         mutable tick_to_move: int;
         mutable lives: int;
-        mutable fright_mode: int option;      (* [Some start_time]
-        means that the fright mode is active since start_time *)
       }
 
   let move state lman =
@@ -47,13 +47,19 @@ module G = struct
         mutable tick_to_move: int;
         mutable direction: int;
         mutable vitality: int;
-        mutable index: int      (* ghost index, between 0 and 3 included *)
+
+        index: int;      (* ghost index, between 0 and 3 included *)
+        program_index: int;
       }
 
   let move environment ghost =
-    Ghc.execute environment ghost.ghc
+    match Ghc.execute environment ghost.ghc with
+    | None                    (* no new direction *)
+    | Some _ ->                 (* new direction *)
+       assert false
 
-  let position g = g.x, g.y
+  let position g =
+         g.x, g.y
 
   let stats g =
     g.vitality, g.direction
@@ -96,6 +102,8 @@ struct
         lambda_man : L.t;
         mutable tick: int;      (* UTC *)
         mutable pills: int;     (* remaining pills *)
+        mutable fright_mode: int option;      (* [Some start_time]
+        means that the fright mode is active since start_time *)
       }
 
 
@@ -103,6 +111,7 @@ struct
     let x,y = M.lambda_man_start in
     state.lambda_man.L.x <- x;
     state.lambda_man.L.y <- y;
+    state.lambda_man.L.lives <- state.lambda_man.L.lives - 1;
     Array.iteri
       (fun i ghost ->
        let x,y = M.ghosts_start.(i) in
@@ -121,13 +130,14 @@ struct
       map = M.data;
     }
 
-  let eating state lman =
+  let eating lman =
     let x = lman.L.x in
     let y = lman.L.y in
     match get ~x ~y with
     | Content.Pill | Content.PowerPill | Content.Fruit -> true
     | _ -> false
 
+  let eat_a_ghost _ = assert false
 
   let tick state =
     let lman = state.lambda_man in
@@ -140,7 +150,7 @@ only every few ticks; see the ticks section below.)  *)
       then
         begin
           L.move state lman;
-          if eating state lman
+          if eating lman
           then
             lman.L.tick_to_move <- state.tick + Delay.eating
           else
@@ -153,8 +163,8 @@ only every few ticks; see the ticks section below.)  *)
          if ghost.G.tick_to_move = state.tick
          then
            begin
-             G.move env ghost;
              G.set_next_move state.tick ghost;
+             G.move env ghost;
            end
         ) state.ghosts;
     end;
@@ -174,7 +184,7 @@ only every few ticks; see the ticks section below.)  *)
          set ~x ~y Content.Empty;
       | Content.PowerPill ->
          set ~x ~y Content.Empty;
-         lman.L.fright_mode <- Some state.tick
+         state.fright_mode <- Some (state.tick + Delay.fright_mode_duration)
       | Content.Fruit ->
          set ~x ~y Content.Empty;
       | _ -> ()
@@ -187,12 +197,17 @@ details. *)
     begin try
         Array.iter
           (fun ghost ->
-           if lman.L.x = ghost.G.x && lman.L.y = ghost.G.y
+           if lman.L.x = ghost.G.x
+              && lman.L.y = ghost.G.y
            then
              begin
                (* Check what happens if two lambda-men are eaten at
                 the same point in time. *)
-               raise Reset_positions;
+               if ghost.G.vitality = 0
+               then raise Reset_positions
+               else if ghost.G.vitality = 1
+               then eat_a_ghost lman ghost
+               else ()
              end
           ) state.ghosts;
       with
