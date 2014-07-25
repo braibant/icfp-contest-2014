@@ -20,8 +20,10 @@
 %token SEMICOLON2
 %token EOF
 
+/*
 %start toplevel
 %type <Syntax.toplevel_cmd list> toplevel
+*/
 %start expr
 %type <Syntax.expr> expr
 
@@ -29,14 +31,14 @@
 %nonassoc LET
 %nonassoc FUN REC IS
 %nonassoc IF THEN ELSE
-%nonassoc EQUAL LESS
+%nonassoc EQUAL GT GTE LT LTE
 %left PLUS MINUS
 %left TIMES
 %left COLON
 %right TARROW
 
 %%
-
+/*
 toplevel:
     EOF                      { [] }
   | def EOF                  { [$1] }
@@ -52,11 +54,13 @@ def:
       { Def($3, FunRec ($3, $5, $7, $10, $12)) }
   | LET VAR LPAREN VAR COLON ty RPAREN EQUAL expr
       { Def($2, Fun ($4, $6, $9)) }
+*/
 
 expr:
     non_app             { $1 }
   | app                 { $1 }
   | arith               { $1 }
+
   | boolean             { $1 }
   | IF expr THEN expr ELSE expr	{ If ($2, $4, $6) }
   | FUN REC VAR LPAREN VAR COLON ty RPAREN COLON ty TARROW expr

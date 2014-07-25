@@ -311,6 +311,34 @@ type run_error =
 
 exception Run_error of (run_error * registers)
 
+let print_stack_tag (type a) fmt: a stack_tag -> unit = function
+| S -> Format.fprintf fmt "value"
+| E -> Format.fprintf fmt "frame"
+| D -> Format.fprintf fmt "control"
+
+let print_value_tag (type a) fmt: a value_tag -> unit = function
+| Int -> Format.fprintf fmt "Int"
+| Pair -> Format.fprintf fmt "Pair"
+| Closure -> Format.fprintf fmt "Closure"
+
+let print_step_error fmt = function
+  | Empty_stack s -> Format.fprintf fmt "Empty stack %a" print_stack_tag s
+  | Invalid_frame_index -> Format.fprintf fmt "Invalid frame index"
+  | Dummy_frame -> Format.fprintf fmt "Dummy frame"
+  | Invalid_code_pointer -> Format.fprintf fmt "Invalid code pointer"
+  | Value_tag_mismatch v ->
+    Format.fprintf fmt "Value_tag_mismatch(exp=%a,found=%a)"
+      print_value_tag v.expected print_value_tag v.found
+  | Control_tag_mismatch _ -> Format.fprintf fmt "Control tag mismatch"
+  | Division_by_zero -> Format.fprintf fmt "Division by zero"
+
+
+let print_run_error fmt = function
+  | Stack_overflow v -> Format.fprintf fmt "Stack overflow %a"
+                          print_stack_tag v
+  | Step (s,_) -> Format.fprintf fmt "Step Error:%a" print_step_error s
+  | Invalid_code_pointer -> Format.fprintf fmt "Invalid code pointer"
+
 let stack_limit = 10_000
 
 let check_stacks ({s;e;d;_} as regs) =

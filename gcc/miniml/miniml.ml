@@ -103,7 +103,16 @@ let main =
     try
       List.iter (fun f ->
           let fh = open_in f in
-          let expr = Parser.expr Lexer.token (Lexing.from_channel fh) in
+          let lexbuf = Lexing.from_channel fh in
+          Lexer.set_file f lexbuf;
+          let expr =
+            try
+              Parser.expr Lexer.token lexbuf
+            with Parsing.Parse_error ->
+              Format.eprintf "%aSyntax Error@."
+                Lexer.report_position (Lexer.loc lexbuf);
+              exit 1
+          in
           let instrs = Compile.compile expr in
           if !print then
             Format.printf "%a@." Gcc_instr.print_instructions instrs;
@@ -117,4 +126,5 @@ let main =
       | Type_check.Type_error msg -> print_endline ("Type error: " ^ msg)
     (* | Machine.Machine_error msg -> print_endline ("Runtime error: " ^ msg) *)
       | Failure _ | Parsing.Parse_error -> print_endline "Syntax error."
-
+      | Gcc.Run_error(error,_) -> Format.eprintf "Gcc Error: %a@."
+                                    Gcc.print_run_error error; exit 1

@@ -58,10 +58,10 @@ let rec compile env = function
   | Fun (x, _, e) ->
     let env = shift_frame env in
     let env = add_frame env x {aframe=0;avar=0} in
-    let e = save_instrs env (compile env e) in
+    let e = save_instrs env (compile env e@[RTN]) in
     [LDF e]
   | Apply (e1, e2) ->
-    (compile env e1) @ (compile env e2) @ [AP 1]
+    (compile env e2) @ (compile env e1) @ [AP 1]
 
 let compile expr =
   let env =  {cenv = MStr.empty; slots = {sinstr=[];snext=3}} in
