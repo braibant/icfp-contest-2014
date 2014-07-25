@@ -83,11 +83,6 @@ let control_untag : type a . a control_tag -> control -> a =
 
 let next_instr (Code n) = Code (n + 1)
 
-let aux_push v {s;e;c;d} =
-  let s = v::s in
-  let c = next_instr c in
-  {s;e;c;d}
-
 let pop : type a . a stack_tag -> a list -> a * a list =
  fun tag -> function
   | [] -> error (Empty_stack tag)
@@ -98,16 +93,22 @@ let nth : type a . a stack_tag -> a list -> int -> a =
    try List.nth stack n
    with _ -> error (Empty_stack tag)
 
-let push n reg = aux_push (tag Int n) reg
+let push n {s;e;c;d} =
+  let s = tag Int n :: s in
+  let c = next_instr c in
+  {s;e;c;d}
 
-let frame_get frame i =
-  try frame.(i)
-  with _ -> error Invalid_frame_index
+let frame_check frame i =
+  if Array.length frame <= i
+  then error Invalid_frame_index
 
-let ld n i reg =
-  let frame = nth E reg.e n in
-  let v = frame_get frame i in
-  aux_push v reg
+let ld n i {s;e;c;d} =
+  let frame = nth E e n in
+  frame_check frame i;
+  let v = frame.(i) in
+  let s = v::s in
+  let c = next_instr c in
+  {s;e;c;d}
 
 exception Data_stack_overflow
 
@@ -159,12 +160,18 @@ let cdr = unop (fun v ->
   y
 )
 
-let sel t f {s;e;c;d} =
+type tail_status =
+| Tail
+| Non_tail
+
+let sel tail t f s =
   let x, s = pop S s in
-  let b = untag Int x in
-  let d = control_tag Join (next_instr c) :: d in
-  let c = if b = 0 then f else t in
-  {s;e;c;d}
+  let n = untag Int x in
+  let d = match tail with
+    | Tail -> d
+    | Nontail -> control_tag Join (next_instr c) :: d in
+  let c = if n = 0 then f else t in
+  { s; e; c; d }
 
 let join {s;e;c;d} =
   let x, d = pop D d in
@@ -176,7 +183,7 @@ let ldf f {s;e;c;d} =
   let c = next_instr c in
   {s;e;c;d}
 
-let ap n {s;e;c;d} =
+let ap tail n {s;e;c;d} =
   let x, s = pop S s in
   let (f, e) = untag Closure x in
   let frame, s =
@@ -188,11 +195,14 @@ let ap n {s;e;c;d} =
       cur_s := s;
     done;
     frame, !cur_s in
-  (* a difference from the spec:
-     Ret control slots keep both
-     the code pointer and the environment,
-     instead of storing them as two separate stack slots *)
-  let d = control_tag Ret (next_instr c, e) :: d in
+  let d = match tail with
+    | Tail -> d
+    | Nontail ->
+      (* a difference from the spec:
+         Ret control slots keep both
+         the code pointer and the environment,
+         instead of storing them as two separate stack slots *)
+      control_tag Ret (next_instr c, e) :: d in
   let e = frame :: e in
   let c = f in
   {s;e;c;d}
@@ -226,7 +236,7 @@ let check_dum frame n =
       | _ -> error Dummy_frame_altered
   ) frame
 
-let rap n {s;e;c;d} =
+let rap tail n {s;e;c;d} =
   let x,s = pop S s in
   let (f, fp) = untag Closure x in
   let frame, fpp = pop E fp in
@@ -239,10 +249,19 @@ let rap n {s;e;c;d} =
       frame.(i) <- y;
     done;
     !cur_s in
-  let d = control_tag Ret (next_instr c, fpp) :: d in
+  let d = match tail with
+    | Tail -> d
+    | Nontail -> control_tag Ret (next_instr c, fpp) :: d in
   let e = fp in
   let c = f in
   {s;e;c;d}
 
 let stop = raise Machine_stop
 
+let st n i {s;e;c;d} =
+  let frame = nth E e n in
+  let v, s = pop S s in
+  frame_check frame i;
+  frame.(i) <- v;
+  let c = next_instr c in
+  {s;e;c;d}
