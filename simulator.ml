@@ -10,6 +10,37 @@ exception Reset_positions
 exception Win
 exception Lose
 
+module Lman = struct
+  type t =
+      {
+        (* gcc: Gcc.state*)
+        mutable x : int;
+        mutable y : int;
+        mutable tick_to_move: int;
+        mutable lives: int;
+        mutable fright_mode: int option;      (* [Some start_time]
+        means that the firght mode is active since start_time *)
+      }
+
+  let move state lman =
+    ()
+
+end
+
+module Ghost = struct
+
+  type t =
+      {
+        ghc: Ghc.state;
+        mutable x : int;
+        mutable y: int;
+        mutable tick_to_move: int;
+      }
+
+  let move environment ghost =
+    Ghc.execute environment ghost.ghc
+end
+
 module Make (Map : MAP) =
 struct
 
@@ -17,7 +48,6 @@ struct
     Map.data.(y).(x)
   let set: x:int -> y:int -> Content.t -> unit = fun ~x ~y c ->
     Map.data.(y).(x) <- c
-
 
   let level = ((Map.width * Map.height) / 100) + 1
   let _ = assert (100 * (level - 1) < Map.width * Map.height)
@@ -34,51 +64,29 @@ struct
 
   end
 
-  type lambda_man =
-      {
-        (* gcc: Gcc.state*)
-        mutable lman_x : int;
-        mutable lman_y : int;
-        (* [Some start_time] means that the firght mode is active
-        since start_time *)
-        mutable fright_mode: int option;
-        mutable lives: int;
-        mutable tick_to_move: int
-      }
 
-  type ghost =
-      {
-        ghc: Ghc.state;
-        mutable ghost_x : int;
-        mutable ghost_y: int;
-        mutable ghost_tick_to_move: int;
-      }
 
   type state =
       {
-        ghosts: ghost array;
-        lambda_man : lambda_man;
-        mutable tick: int;
+        ghosts: Ghost.t array;
+        lambda_man : Lman.t;
+        mutable tick: int;      (* UTC *)
         mutable pills: int;     (* remaining pills *)
       }
 
 
   let reset_positions state =
     let x,y = Map.lambda_man_start in
-    state.lambda_man.lman_x <- x;
-    state.lambda_man.lman_y <- y;
+    state.lambda_man.x <- x;
+    state.lambda_man.y <- y;
     Array.iteri
       (fun i ghost ->
        let x,y = Map.ghosts_start.(i) in
-       state.ghosts.(i).ghost_x <- x;
-       state.ghosts.(i).ghost_y <- y;
+       state.ghosts.(i).x <- x;
+       state.ghosts.(i).y <- y;
       ) state.ghosts
 
-  let ghost_move state ghost =
-    Ghc.execute (Obj.magic 1) ghost.ghc
-
-  let lman_move state lman =
-    ()
+  let make_ghc_env x = assert false
 
   let tick state =
 
@@ -89,13 +97,15 @@ struct
 place. (Note that Lambda-Man and the ghosts do not move every tick,
 only every few ticks; see the ticks section below.)  *)
 
-      if lman.tick_to_move = state.tick
-      then lman_move state lman;
+      if lman.Lman.tick_to_move = state.tick
+      then Lman.move state lman;
 
+      let env = make_ghc_env state in
       Array.iter
         (fun ghost ->
-         if ghost.ghost_tick_to_move = state.tick
-         then ghost_move state ghost
+         let open Ghost in
+         if ghost.tick_to_move = state.tick
+         then move env ghost
         ) state.ghosts;
     end;
 
@@ -105,8 +115,8 @@ only every few ticks; see the ticks section below.)  *)
       ()
     end;
     begin
-      let x = lman.lman_x in
-      let y = lman.lman_y in
+      let x = lman.x in
+      let y = lman.y in
       match get ~x ~y with
       | Content.Pill ->
          state.pills <- state.pills - 1;
@@ -128,7 +138,7 @@ details. *)
     begin try
         Array.iter
           (fun ghost ->
-           if lman.lman_x = ghost.ghost_x && lman.lman_y = ghost.ghost_y
+           if lman.Lman.x = ghost.Ghost.x && lman.Lman.y = ghost.Ghost.y
            then
              begin
                (* Check what happens if two lambda-men are eaten at

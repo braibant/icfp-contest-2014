@@ -9,3 +9,4 @@ type t =
 
 val to_char: t -> char
 val of_char: char -> t
+val to_byte: t -> int

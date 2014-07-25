@@ -18,13 +18,13 @@ type argument =
 
 
 type binop =
-| ADD
-| SUB
-| MUL
-| DIV
-| AND
-| OR
-| XOR
+  | ADD
+  | SUB
+  | MUL
+  | DIV
+  | AND
+  | OR
+  | XOR
 
 type comparison =
   | LT | EQ | GT
@@ -50,14 +50,16 @@ type state =
     registers: byte array;
     data: byte array;
     code: instr array;
-    mutable pc: byte
+    mutable pc: byte;
+
+    index: int
   }
 
 
-let init code =
+let init index code =
   let data = Array.create size 0 in
   let registers = Array.create nreg 0 in
-  {data; registers; code; pc = 0}
+  {data; registers; code; pc = 0; index}
 
 let rvalue state argument =
   match argument with
@@ -77,20 +79,20 @@ let set state dest value =
   | Constant _ -> raise Not_lvalue
   | Location cst -> state.data.(cst) <- value
 
-type interrupts =
+
+type env =
     {
-      set_ghost_direction: byte -> unit;          (* INT 0 *)
-      get_lman1_coordinates: unit -> byte * byte; (* INT 1 *)
-      get_lman2_coordinates: unit -> byte * byte; (* INT 2 *)
-      get_ghost_index: unit -> byte;		  (* INT 3 *)
-      get_ghost_starting_coordinates: byte -> byte * byte;  (* INT 4 *)
-      get_ghost_current_coordinates: byte -> byte * byte;  (* INT 5 *)
-      get_ghost_current_stats: byte -> byte * byte;  (* INT 6 *)
-      get_map_content: (byte * byte) -> byte;		 (* INT 7 *)
-      debug: byte * byte array -> unit (* INT 8 *)
+      lman_coordinates: (int * int) array;
+      ghost_starting_positions: (int * int) array;
+      ghost_current_positions : (int * int) array;
+      ghost_stats : (int * int) array;
+      map: Content.t array array;
+
+      set_direction: byte -> unit;
+      debug: byte * byte array -> unit
     }
 
-let execution_cycle interrupts state =
+let execution_cycle env state =
   let instr = state.code.(state.pc) in
   match instr with
   | MOV (dest, src) ->
@@ -133,38 +135,39 @@ let execution_cycle interrupts state =
 
   | INT int ->
      begin match int with
-	   | 0 -> interrupts.set_ghost_direction state.registers.(0)
+	   | 0 -> env.set_direction state.registers.(0)
 	   | 1 ->
-	      let x,y = interrupts.get_lman1_coordinates () in
+	      let x,y = env.lman_coordinates.(0) in
 	      state.registers.(0) <- x;
 	      state.registers.(1) <- y
 	   | 2 ->
-	      let x,y = interrupts.get_lman2_coordinates () in
+	      let x,y = env.lman_coordinates.(1) in
 	      state.registers.(0) <- x;
 	      state.registers.(1) <- y
-	   | 3 -> state.registers.(0) <- interrupts.get_ghost_index ()
+	   | 3 ->
+              state.registers.(0) <- state.index
 	   | 4 ->
 	      let a = state.registers.(0) in
-	      let (x,y) = interrupts.get_ghost_starting_coordinates a in
+	      let (x,y) = env.ghost_starting_positions.(a) in
 	      state.registers.(0) <- x;
 	      state.registers.(1) <- y
 	   | 5 ->
  	      let a = state.registers.(0) in
-	      let (x,y) = interrupts.get_ghost_current_coordinates a in
+	      let (x,y) = env.ghost_current_positions.(a) in
 	      state.registers.(0) <- x;
 	      state.registers.(1) <- y
 	   | 6 ->
  	      let a = state.registers.(0) in
-	      let (x,y) = interrupts.get_ghost_current_stats a in
+	      let (x,y) = env.ghost_stats.(a) in
 	      state.registers.(0) <- x;
 	      state.registers.(1) <- y
 	   | 7 ->
-	      let a = state.registers.(0) in
-	      let b = state.registers.(1) in
-	      let content = interrupts.get_map_content (a,b) in
-	      state.registers.(0) <- content
+	      let x = state.registers.(0) in
+	      let y = state.registers.(1) in
+	      let content = Map.get env.map ~x ~y in
+	      state.registers.(0) <- Content.to_byte content
 	   | 8 ->
-	      interrupts.debug (state.pc,state.registers)
+	      env.debug (state.pc,state.registers)
 	   | _ -> assert false
      end
   | HLT -> raise Halt
