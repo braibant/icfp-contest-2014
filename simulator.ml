@@ -1,7 +1,8 @@
-module type MAP = sig
+module type MAP =
+  sig
     val width : int
     val height: int
-    val data: Content.t array array (* a mutable array of lines *)
+    val data: Map.t
     val lambda_man_start: int * int
     val ghosts_start: (int * int) array
   end
@@ -19,7 +20,7 @@ module L = struct
         mutable tick_to_move: int;
         mutable lives: int;
         mutable fright_mode: int option;      (* [Some start_time]
-        means that the firght mode is active since start_time *)
+        means that the fright mode is active since start_time *)
       }
 
   let move state lman =
@@ -47,30 +48,30 @@ module G = struct
   let stats g = g.vitality, g.direction
 end
 
-module Make (Map : MAP) =
+module Make (M : MAP) =
 struct
 
   let get: x:int -> y:int -> Content.t = fun ~x ~y ->
-    Map.data.(y).(x)
+    M.data.(y).(x)
   let set: x:int -> y:int -> Content.t -> unit = fun ~x ~y c ->
-    Map.data.(y).(x) <- c
+    M.data.(y).(x) <- c
 
-  let level = ((Map.width * Map.height) / 100) + 1
-  let _ = assert (100 * (level - 1) < Map.width * Map.height)
-  let _ = assert (Map.width * Map.height <= 100 * level)
+  let level = ((M.width * M.height) / 100) + 1
+  let _ = assert (100 * (level - 1) < M.width * M.height)
+  let _ = assert (M.width * M.height <= 100 * level)
 
   module Time = struct
-    let end_of_lives = 127 * Map.width * Map.height * 16
+    let end_of_lives = 127 * M.width * M.height * 16
 
     let fruit_1_appear = 127 * 200
     let fruit_2_appear = 127 * 400
     let fruit_1_expires = 127 * 280
-    let fruit_2_expries = 127 * 480
+    let fruit_2_expires = 127 * 480
     let fright_mode_duration = 127 * 20
 
+    let eating = 127
+    let not_eating = 137
   end
-
-
 
   type state =
       {
@@ -82,12 +83,12 @@ struct
 
 
   let reset_positions state =
-    let x,y = Map.lambda_man_start in
+    let x,y = M.lambda_man_start in
     state.lambda_man.L.x <- x;
     state.lambda_man.L.y <- y;
     Array.iteri
       (fun i ghost ->
-       let x,y = Map.ghosts_start.(i) in
+       let x,y = M.ghosts_start.(i) in
        state.ghosts.(i).G.x <- x;
        state.ghosts.(i).G.y <- y;
       ) state.ghosts
@@ -97,23 +98,37 @@ struct
     let open Ghc in
     {
       lman_coordinates = [| state.lambda_man.L.x, state.lambda_man.L.y |];
-      ghost_starting_positions = Map.ghosts_start;
+      ghost_starting_positions = M.ghosts_start;
       ghost_current_positions = Array.map G.position state.ghosts;
       ghost_stats = Array.map G.stats state.ghosts;
-      map = Map.data;
+      map = M.data;
     }
 
+  let eating state lman =
+    let x = lman.L.x in
+    let y = lman.L.y in
+    match get ~x ~y with
+    | Content.Pill | Content.PowerPill | Content.Fruit -> true
+    | _ -> false
+
+
   let tick state =
-
     let lman = state.lambda_man in
-
     begin
       (* All Lambda-Man and ghost moves scheduled for this tick take
 place. (Note that Lambda-Man and the ghosts do not move every tick,
 only every few ticks; see the ticks section below.)  *)
 
       if lman.L.tick_to_move = state.tick
-      then L.move state lman;
+      then
+        begin
+          L.move state lman;
+          if eating state lman
+          then
+            lman.L.tick_to_move <- state.tick + Time.eating
+          else
+            lman.L.tick_to_move <- state.tick + Time.not_eating
+        end;
 
       let env = make_ghc_env state in
       Array.iter
@@ -128,6 +143,7 @@ only every few ticks; see the ticks section below.)  *)
       (* appearing/disappearing) take place. *)
       ()
     end;
+
     begin
       let x = lman.L.x in
       let y = lman.L.y in
@@ -135,8 +151,6 @@ only every few ticks; see the ticks section below.)  *)
       | Content.Pill ->
          state.pills <- state.pills - 1;
          set ~x ~y Content.Empty;
-      (* If Lambda-Man occupies a square with a pill, the pill is
-        eaten by Lambda-Man and removed from the game. *)
       | Content.PowerPill ->
          set ~x ~y Content.Empty;
          lman.L.fright_mode <- Some state.tick
