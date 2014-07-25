@@ -35,10 +35,16 @@ module G = struct
         mutable x : int;
         mutable y: int;
         mutable tick_to_move: int;
+        mutable direction: int;
+        mutable vitality: int
       }
 
   let move environment ghost =
     Ghc.execute environment ghost.ghc
+
+  let position g = g.x, g.y
+
+  let stats g = g.vitality, g.direction
 end
 
 module Make (Map : MAP) =
@@ -86,7 +92,16 @@ struct
        state.ghosts.(i).G.y <- y;
       ) state.ghosts
 
-  let make_ghc_env x = assert false
+  (* Build a GHC environment for a given state *)
+  let make_ghc_env state =
+    let open Ghc in
+    {
+      lman_coordinates = [| state.lambda_man.L.x, state.lambda_man.L.y |];
+      ghost_starting_positions = Map.ghosts_start;
+      ghost_current_positions = Array.map G.position state.ghosts;
+      ghost_stats = Array.map G.stats state.ghosts;
+      map = Map.data;
+    }
 
   let tick state =
 

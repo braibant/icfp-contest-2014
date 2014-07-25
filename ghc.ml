@@ -52,14 +52,17 @@ type state =
     code: instr array;
     mutable pc: byte;
 
-    index: int
+    index: int;
+    mutable direction: byte option
   }
 
+let set_direction state direction =
+  state.direction <- Some direction
 
 let init index code =
   let data = Array.create size 0 in
   let registers = Array.create nreg 0 in
-  {data; registers; code; pc = 0; index}
+  {data; registers; code; pc = 0; index; direction = None}
 
 let rvalue state argument =
   match argument with
@@ -87,9 +90,6 @@ type env =
       ghost_current_positions : (int * int) array;
       ghost_stats : (int * int) array;
       map: Content.t array array;
-
-      set_direction: byte -> unit;
-      debug: byte * byte array -> unit
     }
 
 let execution_cycle env state =
@@ -135,7 +135,7 @@ let execution_cycle env state =
 
   | INT int ->
      begin match int with
-	   | 0 -> env.set_direction state.registers.(0)
+	   | 0 -> set_direction state state.registers.(0)
 	   | 1 ->
 	      let x,y = env.lman_coordinates.(0) in
 	      state.registers.(0) <- x;
@@ -166,8 +166,7 @@ let execution_cycle env state =
 	      let y = state.registers.(1) in
 	      let content = Map.get env.map ~x ~y in
 	      state.registers.(0) <- Content.to_byte content
-	   | 8 ->
-	      env.debug (state.pc,state.registers)
+	   | 8 -> Printf.eprintf "Debug\n"
 	   | _ -> assert false
      end
   | HLT -> raise Halt
@@ -177,6 +176,7 @@ let execute interrupts state =
   let i = ref 0 in
   try
     state.pc <- 0;
+    state.direction <- None;
     while !i < 1024 do
       let pc = state.pc in
       execution_cycle interrupts state;
