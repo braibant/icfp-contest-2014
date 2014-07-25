@@ -11,7 +11,9 @@ type registers = {
 and data_stack = value list
 and control_stack = control list
 and environment = frame list
-and frame = value array
+and frame =
+| Dummy of int
+| Frame of value array
 
 and 'a stack_tag =
 | S : value stack_tag
@@ -23,7 +25,6 @@ and _ value_tag =
 | Int : int value_tag
 | Pair : (value * value) value_tag
 | Closure : (code_ptr * environment) value_tag
-| Dummy : dummy value_tag
 
 and control = Control : 'a control_tag * 'a -> control
 and _ control_tag =
@@ -38,13 +39,13 @@ type ('a, 'b) tag_error = { expected: 'a; found : 'b; }
 type step_error =
     | Empty_stack : 'a stack_tag -> step_error
     | Invalid_frame_index
+    | Dummy_frame
     | Invalid_code_pointer
     | Value_tag_mismatch
         : ('a value_tag, 'b value_tag) tag_error -> step_error
     | Control_tag_mismatch
         : ('a control_tag, 'b control_tag) tag_error -> step_error
     | Division_by_zero
-    | Dummy_frame_altered
 
 exception Machine_stop
 exception Step_error of step_error
@@ -56,14 +57,12 @@ let tag : type a . a value_tag -> a -> value =
     | Int -> Value (Int, v)
     | Pair -> Value (Pair, v)
     | Closure -> Value (Closure, v)
-    | Dummy -> Value (Dummy, v)
 
 let untag : type a . a value_tag -> value -> a =
   fun ty v -> match ty, v with
     | Int, Value (Int, n) -> n
     | Pair, Value (Pair, p) -> p
     | Closure, Value (Closure, ptr) -> ptr
-    | Dummy, Value (Dummy, Dummy) -> Dummy
     | expected, Value (found, _) ->
       error (Value_tag_mismatch { expected; found; })
 
@@ -94,14 +93,25 @@ let ldc n {s;e;c;d} =
   let c = next_instr c in
   {s;e;c;d}
 
-let frame_check frame i =
+let frame_index_check frame i =
   if Array.length frame <= i
   then error Invalid_frame_index
 
+let frame_get frame i = match frame with
+  | Dummy _ -> error Dummy_frame
+  | Frame tab ->
+    frame_index_check tab i;
+    tab.(i)
+
+let frame_set frame i v = match frame with
+  | Dummy _ -> error Dummy_frame
+  | Frame tab ->
+    frame_index_check tab i;
+    tab.(i) <- v
+
 let ld n i {s;e;c;d} =
   let frame = nth E e n in
-  frame_check frame i;
-  let v = frame.(i) in
+  let v = frame_get frame i in
   let s = v::s in
   let c = next_instr c in
   {s;e;c;d}
@@ -183,13 +193,14 @@ let ap tail n {s;e;c;d} =
   let x, s = pop S s in
   let (closure_code, closed_env) = untag Closure x in
   let new_env, s =
-    let frame = Array.make n (tag Dummy Dummy) in
     let cur_s = ref s in
-    for i = n - 1 downto 0 do
+    let args = ref [] in
+    for i = 0 to n - 1 do
       let x, s = pop S !cur_s in
-      frame.(i) <- x;
+      args := x :: !args;
       cur_s := s;
     done;
+    let frame = Frame (Array.of_list !args) in
     frame :: closed_env, !cur_s in
   let d = match tail with
     | Tail -> d
@@ -216,35 +227,24 @@ let rtn {s;e;c;d} =
   {s;e;c;d}
 
 let dum n {s;e;c;d} =
-  (* difference from the spec: we represent a dummy frame
-     as a frame of dummy values *)
-  let frame = Array.make n (tag Dummy Dummy) in
-  let e = frame :: e in
+  let e = Dummy n :: e in
   let c = next_instr c in
   {s;e;c;d}
-
-let check_dum frame n =
-  if Array.length frame <> n then
-    error Dummy_frame_altered;
-  Array.iter (function (Value (tag, _)) ->
-    match tag with
-      | Dummy -> ()
-      | _ -> error Dummy_frame_altered
-  ) frame
 
 let rap tail n {s;e;c;d} =
   let x,s = pop S s in
   let (f, fp) = untag Closure x in
   let frame, fpp = pop E fp in
-  check_dum frame n;
-  let s =
+  if frame <> Dummy n then error Dummy_frame;
+  let frame, s =
+    let args = ref [] in
     let cur_s = ref s in
-    for i = n-1 downto 0 do
+    for i = 0 to n-1 do
       let y,s = pop S !cur_s in
       cur_s := s;
-      frame.(i) <- y;
+      args := y :: !args;
     done;
-    !cur_s in
+    Frame (Array.of_list !args), !cur_s in
   let d = match tail with
     | Tail -> d
     | Non_tail -> control_tag Ret (next_instr c, fpp) :: d in
@@ -257,8 +257,7 @@ let stop _reg = raise Machine_stop
 let st n i {s;e;c;d} =
   let frame = nth E e n in
   let v, s = pop S s in
-  frame_check frame i;
-  frame.(i) <- v;
+  frame_set frame i v;
   let c = next_instr c in
   {s;e;c;d}
 
@@ -430,7 +429,9 @@ let rec untyped : registers -> Untyped.registers =
 and untyped_data_stack s = List.map untyped_value s
 and untyped_control_stack d = List.map untyped_control d
 and untyped_environment e = List.map untyped_frame e
-and untyped_frame f = Array.map untyped_value f
+and untyped_frame = function
+  | Dummy n -> Array.make n Untyped.Dummy
+  | Frame f -> Array.map untyped_value f
 and untyped_code_ptr (Code n) = n
 and untyped_value : value -> Untyped.value = function
   | Value (Int, n) ->
@@ -439,8 +440,6 @@ and untyped_value : value -> Untyped.value = function
     Untyped.Pair (untyped_value a, untyped_value b)
   | Value (Closure, (c, env)) ->
     Untyped.Closure (untyped_code_ptr c, untyped_environment env)
-  | Value (Dummy, Dummy) ->
-    Untyped.Dummy
 and untyped_control = function
   | Control (Join, c) ->
     Untyped.Join (untyped_code_ptr c)
