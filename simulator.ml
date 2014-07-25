@@ -11,8 +11,6 @@ module Delay = struct
 
   let ghost = [| 	130; 132; 134; 136 |]
   let ghost_fright = [| 195; 198; 201; 204 |]
-
-  let fright_mode_duration = 127 * 20
 end
 
 module L = struct
@@ -112,16 +110,13 @@ struct
       (* All Lambda-Man and ghost moves scheduled for this tick take
 place. (Note that Lambda-Man and the ghosts do not move every tick,
 only every few ticks; see the ticks section below.)  *)
-
       if lman.L.tick_to_move = state.tick
       then
         begin
           L.move state lman;
           if eating lman
-          then
-            lman.L.tick_to_move <- state.tick + Delay.eating
-          else
-            lman.L.tick_to_move <- state.tick + Delay.not_eating
+          then lman.L.tick_to_move <- state.tick + Delay.eating
+          else lman.L.tick_to_move <- state.tick + Delay.not_eating
         end;
 
       let env = make_ghc_env state in
@@ -136,11 +131,10 @@ only every few ticks; see the ticks section below.)  *)
         ) state.ghosts;
     end;
 
-    begin
-      (* Next, any actions (fright mode deactivating, fruit *)
-      (* appearing/disappearing) take place. *)
-      ()
-    end;
+    begin match state.frigth_mode with
+          | None -> ()
+          | Some time -> if time = state.tick then state.fright_mode <- None
+    end
 
     begin
       let x = lman.L.x in
