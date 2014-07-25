@@ -1,14 +1,6 @@
 open Simulator_types
 
-module type MAP =
-  sig
-    val width : int
-    val height: int
-    val data: Board.t
-    val lambda_man_start: int * int
-    val ghosts_start: (int * int) array
-    val fruit_position: int * int
-  end
+
 
 exception Reset_positions
 exception Win
@@ -87,22 +79,23 @@ module G = struct
 
 end
 
-module Make (M : MAP) =
+module Make (M : sig val board : Board.t end) =
 struct
+  include M
 
   let get: x:int -> y:int -> Content.t = fun ~x ~y ->
-    M.data.(y).(x)
+    Board.get board x y
   let set: x:int -> y:int -> Content.t -> unit = fun ~x ~y c ->
-    M.data.(y).(x) <- c
+    Board.set board x y c
 
-  let level = ((M.width * M.height) / 100) + 1
-  let _ = assert (100 * (level - 1) < M.width * M.height)
-  let _ = assert (M.width * M.height <= 100 * level)
+  let level = ((Board.width board * Board.height board) / 100) + 1
+  let _ = assert (100 * (level - 1) < Board.width board * Board.height board)
+  let _ = assert (Board.width board * Board.height board <= 100 * level)
 
   type state = Simulator_types.state
 
   module Time = struct
-    let end_of_lives = 127 * M.width * M.height * 16
+    let end_of_lives = 127 * Board.width board * Board.height board * 16
 
     let fruit_1_appear = 127 * 200
     let fruit_2_appear = 127 * 400
@@ -112,12 +105,12 @@ struct
   end
 
   let reset_ghost ghost =
-    let x,y = M.ghosts_start.(ghost.G.index) in
+    let x,y = (Board.ghosts_start board).(ghost.G.index) in
     ghost.G.x <- x;
     ghost.G.y <- y
 
   let reset_positions state =
-    let x,y = M.lambda_man_start in
+    let x,y = Board.lambda_man_start board in
     state.lambda_man.L.x <- x;
     state.lambda_man.L.y <- y;
     state.lambda_man.L.lives <- state.lambda_man.L.lives - 1;
@@ -128,10 +121,10 @@ struct
     let open Ghc in
     {
       lman_coordinates = [| state.lambda_man.L.x, state.lambda_man.L.y |];
-      ghost_starting_positions = M.ghosts_start;
+      ghost_starting_positions = Board.ghosts_start board;
       ghost_current_positions = Array.map G.position state.ghosts;
       ghost_stats = Array.map G.stats state.ghosts;
-      map = M.data;
+      map = board;
     }
 
   let eating lman =
@@ -148,8 +141,8 @@ struct
     let lman = state.lambda_man in
     begin
       (* All Lambda-Man and ghost moves scheduled for this tick take
-place. (Note that Lambda-Man and the ghosts do not move every tick,
-only every few ticks; see the ticks section below.)  *)
+         place. (Note that Lambda-Man and the ghosts do not move every tick,
+         only every few ticks; see the ticks section below.)  *)
       if lman.L.tick_to_move = state.tick
       then
         begin
@@ -178,7 +171,7 @@ only every few ticks; see the ticks section below.)  *)
              then state.fright_mode <- None
     end;
 
-    begin let x,y = M.fruit_position in
+    begin let x,y = Board.fruit_position  board in
           if state.tick = Time.fruit_1_appear
              || state.tick = Time.fruit_2_appear
           then set ~x ~y Content.Fruit
@@ -206,18 +199,18 @@ only every few ticks; see the ticks section below.)  *)
     end;
 
     (* Next, if one or more visible ghosts are on the same square as
-Lambda-Man, then depending on whether or not fright mode is active,
-Lambda-Man either loses a life or eats the ghost(s). See below for
-details. *)
+       Lambda-Man, then depending on whether or not fright mode is active,
+       Lambda-Man either loses a life or eats the ghost(s). See below for
+       details. *)
     begin try
         Array.iter
           (fun ghost ->
            if lman.L.x = ghost.G.x
-              && lman.L.y = ghost.G.y
+           && lman.L.y = ghost.G.y
            then
              begin
                (* Check what happens if two lambda-men are eaten at
-                the same point in time. *)
+                  the same point in time. *)
                if ghost.G.vitality = 0
                then raise Reset_positions
                else if ghost.G.vitality = 1
@@ -230,7 +223,7 @@ details. *)
     end;
 
     (* Next, if all the ordinary pills (ie not power pills) have been
-eaten, then Lambda-Man wins and the game is over. *)
+       eaten, then Lambda-Man wins and the game is over. *)
     if state.pills = 0
     then raise Win;
 

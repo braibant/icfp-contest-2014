@@ -88,7 +88,7 @@ type env =
       ghost_starting_positions: (int * int) array;
       ghost_current_positions : (int * int) array;
       ghost_stats : (int * int) array;
-      map: Content.t array array;
+      map: Board.t;
     }
 
 let execution_cycle env state =
