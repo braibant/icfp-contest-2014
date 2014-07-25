@@ -2,7 +2,13 @@ module type MAP = sig
     val width : int
     val height: int
     val data: Content.t array array (* a mutable array of lines *)
+    val lambda_man_start: int * int
+    val ghosts_start: (int * int) array
   end
+
+exception Reset_positions
+exception Win
+exception Lose
 
 module Make (Map : MAP) =
 struct
@@ -31,18 +37,21 @@ struct
   type lambda_man =
       {
         (* gcc: Gcc.state*)
-        lman_x : int;
-        lman_y : int;
+        mutable lman_x : int;
+        mutable lman_y : int;
         (* [Some start_time] means that the firght mode is active
         since start_time *)
         mutable fright_mode: int option;
-        mutable lives: int
+        mutable lives: int;
+        mutable tick_to_move: int
       }
 
   type ghost =
-      {ghc: Ghc.state;
-       ghost_x : int;
-       ghost_y: int
+      {
+        ghc: Ghc.state;
+        mutable ghost_x : int;
+        mutable ghost_y: int;
+        mutable ghost_tick_to_move: int;
       }
 
   type state =
@@ -53,17 +62,42 @@ struct
         mutable pills: int;     (* remaining pills *)
       }
 
-  exception Reset_positions
-  exception Win
-  exception Lose
+
+  let reset_positions state =
+    let x,y = Map.lambda_man_start in
+    state.lambda_man.lman_x <- x;
+    state.lambda_man.lman_y <- y;
+    Array.iteri
+      (fun i ghost ->
+       let x,y = Map.ghosts_start.(i) in
+       state.ghosts.(i).ghost_x <- x;
+       state.ghosts.(i).ghost_y <- y;
+      ) state.ghosts
+
+  let ghost_move state ghost =
+    Ghc.execute (Obj.magic 1) ghost.ghc
+
+  let lman_move state lman =
+    ()
 
   let tick state =
 
-    (* All Lambda-Man and ghost moves scheduled for this tick take
+    let lman = state.lambda_man in
+
+    begin
+      (* All Lambda-Man and ghost moves scheduled for this tick take
 place. (Note that Lambda-Man and the ghosts do not move every tick,
 only every few ticks; see the ticks section below.)  *)
 
-    let lman = state.lambda_man in
+      if lman.tick_to_move = state.tick
+      then lman_move state lman;
+
+      Array.iter
+        (fun ghost ->
+         if ghost.ghost_tick_to_move = state.tick
+         then ghost_move state ghost
+        ) state.ghosts;
+    end;
 
     begin
       (* Next, any actions (fright mode deactivating, fruit *)
@@ -91,16 +125,20 @@ only every few ticks; see the ticks section below.)  *)
 Lambda-Man, then depending on whether or not fright mode is active,
 Lambda-Man either loses a life or eats the ghost(s). See below for
 details. *)
-    Array.iter
-      (fun ghost ->
-       if lman.lman_x = ghost.ghost_x && lman.lman_y = ghost.ghost_y
-       then
-         begin
-           (* Check what happens if two lambda-men are eaten at
+    begin try
+        Array.iter
+          (fun ghost ->
+           if lman.lman_x = ghost.ghost_x && lman.lman_y = ghost.ghost_y
+           then
+             begin
+               (* Check what happens if two lambda-men are eaten at
                 the same point in time. *)
-           raise Reset_positions;
-         end
-      ) state.ghosts;
+               raise Reset_positions;
+             end
+          ) state.ghosts;
+      with
+        Reset_positions -> reset_positions state
+    end;
 
     (* Next, if all the ordinary pills (ie not power pills) have been
 eaten, then Lambda-Man wins and the game is over. *)

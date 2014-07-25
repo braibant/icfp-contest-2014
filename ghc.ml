@@ -168,3 +168,15 @@ let execution_cycle interrupts state =
 	   | _ -> assert false
      end
   | HLT -> raise Halt
+
+
+let execute interrupts state =
+  let i = ref 0 in
+  try
+    state.pc <- 0;
+    while !i < 1024 do
+      let pc = state.pc in
+      execution_cycle interrupts state;
+      if state.pc = pc then state.pc <- state.pc + 1
+    done
+  with Halt -> ()
