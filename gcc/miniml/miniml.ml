@@ -17,9 +17,9 @@
     [dat1],...,[datN] and exits.
 *)
 
+(*
 open Syntax
 
-(*    
 
 (** A context describing the types of globally defined values. *)
 type context = (name * ty) list
@@ -88,11 +88,16 @@ let shell ctx env =
     with
 	End_of_file -> print_endline "\nGood bye."
 *)
+
 (** The main program. *)
 let main =
+  let print = ref false in
+  let exec  = ref true in
   let files = ref [] in
     Arg.parse
-      []
+      ["-print",Set print,"print the asm";
+       "-no-exec",Clear exec,"execute the asm";
+      ]
       (fun f -> files := f :: !files)
       "Usage: miniml [-n] [file] ..." ;
     try
@@ -100,10 +105,16 @@ let main =
           let fh = open_in f in
           let expr = Parser.expr Lexer.token (Lexing.from_channel fh) in
           let instrs = Compile.compile expr in
-          Format.printf "%a@." Gcc_instr.print_instructions instrs)
+          if !print then
+            Format.printf "%a@." Gcc_instr.print_instructions instrs;
+          if !exec  then
+            let res = Gcc.run (Array.of_list instrs) Gcc.init_regs in
+            Format.printf "res:%a@."
+              (Pp.print_list Pp.semi Gcc.print_value) res.s
+        )
         !files
     with
       | Type_check.Type_error msg -> print_endline ("Type error: " ^ msg)
-      (* | Machine.Machine_error msg -> print_endline ("Runtime error: " ^ msg) *)
+    (* | Machine.Machine_error msg -> print_endline ("Runtime error: " ^ msg) *)
       | Failure _ | Parsing.Parse_error -> print_endline "Syntax error."
 

@@ -47,6 +47,12 @@ type step_error =
         : ('a control_tag, 'b control_tag) tag_error -> step_error
     | Division_by_zero
 
+let rec print_value fmt = function
+  | Value(Int,i) -> Format.fprintf fmt "%i" i
+  | Value(Pair,(v1,v2)) -> Format.fprintf fmt "(%a,%a)"
+                           print_value v1 print_value v2
+  | Value(Closure,(Code c,_)) -> Format.fprintf fmt "(closure %i,_)" c
+
 exception Machine_stop
 exception Step_error of step_error
 

@@ -64,6 +64,6 @@ let rec compile env = function
     (compile env e1) @ (compile env e2) @ [AP 1]
 
 let compile expr =
-  let env =  {cenv = MStr.empty; slots = {sinstr=[];snext=2}} in
+  let env =  {cenv = MStr.empty; slots = {sinstr=[];snext=3}} in
   let main = save_instrs env ((compile env expr)@[RTN]) in
-  (LDF main)::(AP 0)::RTN::(get_slots env)
+  (LDF main)::(AP 0)::STOP::(get_slots env)
