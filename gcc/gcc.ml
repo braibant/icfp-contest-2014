@@ -1,3 +1,5 @@
+open Gcc_instr
+
 type dummy = Dummy
 
 type registers = {
@@ -16,8 +18,6 @@ and 'a stack_tag =
 | E : frame stack_tag
 | D : control stack_tag
 
-and code_ptr = Code of int
-
 and value = Value : 'a value_tag * 'a -> value
 and _ value_tag =
 | Int : int value_tag
@@ -32,35 +32,6 @@ and _ control_tag =
 | Stop : unit control_tag
 
 type code = instruction array
-and instruction =
-| LDC of int
-| LD of int * int
-| ADD
-| SUB
-| MUL
-| DIV
-| CEQ
-| CGT
-| CGTE
-| ATOM
-| CONS
-| CAR
-| CDR
-| SEL of code_ptr * code_ptr
-| JOIN
-| LDF of code_ptr
-| AP of int
-| RTN
-| DUM of int
-| RAP of int
-| STOP
-| TSEL of code_ptr * code_ptr
-| TAP of int
-| TRAP of int
-| ST of int * int
-(* currently unsupported *)
-| DBUG
-| BRK
 
 type ('a, 'b) tag_error = { expected: 'a; found : 'b; }
 
