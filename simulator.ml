@@ -11,6 +11,15 @@ exception Reset_positions
 exception Win
 exception Lose
 
+
+module Delay = struct
+  let eating = 127
+  let not_eating = 137
+
+  let ghost = [| 	130; 132; 134; 136 |]
+  let ghost_fright = [| 195; 198; 201; 204 |]
+end
+
 module L = struct
   type t =
       {
@@ -37,7 +46,8 @@ module G = struct
         mutable y: int;
         mutable tick_to_move: int;
         mutable direction: int;
-        mutable vitality: int
+        mutable vitality: int;
+        mutable index: int      (* ghost index, between 0 and 3 included *)
       }
 
   let move environment ghost =
@@ -45,7 +55,17 @@ module G = struct
 
   let position g = g.x, g.y
 
-  let stats g = g.vitality, g.direction
+  let stats g =
+    g.vitality, g.direction
+
+  let is_frightened g =
+    g.vitality = 1
+
+  let set_next_move utc g =
+    if is_frightened g
+    then g.tick_to_move <- utc + Delay.ghost_fright.(g.index)
+    else g.tick_to_move <- utc + Delay.ghost.(g.index)
+
 end
 
 module Make (M : MAP) =
@@ -68,9 +88,6 @@ struct
     let fruit_1_expires = 127 * 280
     let fruit_2_expires = 127 * 480
     let fright_mode_duration = 127 * 20
-
-    let eating = 127
-    let not_eating = 137
   end
 
   type state =
@@ -125,16 +142,20 @@ only every few ticks; see the ticks section below.)  *)
           L.move state lman;
           if eating state lman
           then
-            lman.L.tick_to_move <- state.tick + Time.eating
+            lman.L.tick_to_move <- state.tick + Delay.eating
           else
-            lman.L.tick_to_move <- state.tick + Time.not_eating
+            lman.L.tick_to_move <- state.tick + Delay.not_eating
         end;
 
       let env = make_ghc_env state in
       Array.iter
         (fun ghost ->
          if ghost.G.tick_to_move = state.tick
-         then G.move env ghost
+         then
+           begin
+             G.move env ghost;
+             G.set_next_move state.tick ghost;
+           end
         ) state.ghosts;
     end;
 
