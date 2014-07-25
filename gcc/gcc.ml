@@ -35,24 +35,21 @@ type code = instruction array
 
 type ('a, 'b) tag_error = { expected: 'a; found : 'b; }
 
-type error =
-    | Empty_stack : 'a stack_tag -> error
+type step_error =
+    | Empty_stack : 'a stack_tag -> step_error
     | Invalid_frame_index
+    | Invalid_code_pointer
     | Value_tag_mismatch
-        : ('a value_tag, 'b value_tag) tag_error -> error
+        : ('a value_tag, 'b value_tag) tag_error -> step_error
     | Control_tag_mismatch
-        : ('a control_tag, 'b control_tag) tag_error -> error
+        : ('a control_tag, 'b control_tag) tag_error -> step_error
     | Division_by_zero
     | Dummy_frame_altered
 
 exception Machine_stop
-exception Error of error
+exception Step_error of step_error
 
-let error err = raise (Error err)
-let value_tag_error err =
-  raise (Error (Value_tag_mismatch err))
-let control_tag_error err =
-  raise (Error (Control_tag_mismatch err))
+let error err = raise (Step_error err)
 
 let tag : type a . a value_tag -> a -> value =
   fun ty v -> match ty with
@@ -68,7 +65,7 @@ let untag : type a . a value_tag -> value -> a =
     | Closure, Value (Closure, ptr) -> ptr
     | Dummy, Value (Dummy, Dummy) -> Dummy
     | expected, Value (found, _) ->
-      value_tag_error { expected; found; }
+      error (Value_tag_mismatch { expected; found; })
 
 let control_tag ty v = Control (ty, v)
 
@@ -78,7 +75,7 @@ let control_untag : type a . a control_tag -> control -> a =
    | Ret, Control (Ret, v) -> v
    | Stop, Control (Stop, v) -> v
    | expected, Control (found, _) ->
-     control_tag_error { expected; found; }
+     error (Control_tag_mismatch { expected; found; })
 
 let next_instr (Code n) = Code (n + 1)
 
@@ -184,8 +181,8 @@ let ldf f {s;e;c;d} =
 
 let ap tail n {s;e;c;d} =
   let x, s = pop S s in
-  let (f, e) = untag Closure x in
-  let frame, s =
+  let (closure_code, closed_env) = untag Closure x in
+  let new_env, s =
     let frame = Array.make n (tag Dummy Dummy) in
     let cur_s = ref s in
     for i = n - 1 downto 0 do
@@ -193,7 +190,7 @@ let ap tail n {s;e;c;d} =
       frame.(i) <- x;
       cur_s := s;
     done;
-    frame, !cur_s in
+    frame :: closed_env, !cur_s in
   let d = match tail with
     | Tail -> d
     | Non_tail ->
@@ -202,8 +199,8 @@ let ap tail n {s;e;c;d} =
          the code pointer and the environment,
          instead of storing them as two separate stack slots *)
       control_tag Ret (next_instr c, e) :: d in
-  let e = frame :: e in
-  let c = f in
+  let e = new_env in
+  let c = closure_code in
   {s;e;c;d}
 
 let rtn {s;e;c;d} =
@@ -255,7 +252,7 @@ let rap tail n {s;e;c;d} =
   let c = f in
   {s;e;c;d}
 
-let stop = raise Machine_stop
+let stop _reg = raise Machine_stop
 
 let st n i {s;e;c;d} =
   let frame = nth E e n in
@@ -295,3 +292,104 @@ let step inst = match inst with
 | DBUG -> failwith "instruction DBUG not yet implemented"
 | BRK -> failwith "instruction BRK not yet implemented"
 
+let init_regs =  {
+    s = [];
+    e = [];
+    c = Code 0;
+    d = [];
+}
+
+type run_error =
+| Step of step_error * instruction
+| Invalid_code_pointer
+
+exception Run_error of (run_error * registers)
+
+let rec run code regs =
+  let error err = raise (Run_error (err, regs)) in
+  let instr =
+    let Code ptr = regs.c in
+    try code.(ptr) with _ ->
+      error Invalid_code_pointer in
+  match begin
+    try `Step (step instr regs) with
+      | Step_error err -> `Error (Step (err, instr))
+      | Machine_stop -> `Stop
+  end with
+    | `Step regs -> run code regs
+    | `Error err -> error err
+    | `Stop -> regs
+
+(** Examples *)
+let local =
+  let body = Code 4 in
+  [|
+  (* 0 *) LDC 21;
+  (* 1 *) LDF body; (* load body *)
+  (* 2 *) AP 1;     (* call body with 1 variable in a new frame *)
+  (* 3 *) STOP;
+  (* note: online example uses RTN instead of STOP here,
+     which gives a control stack error *)
+  (* body = 4 *)
+  (* 4 *) LD (0, 0); (* var x *)
+  (* 5 *) LD (0, 0); (* var x *)
+  (* 6 *) ADD;
+  (* 7 *) RTN;
+  |]
+
+(** Useful for debugging: toplevel doesn't pretty-printer GADTs as one
+    would expect *)
+module Untyped = struct
+  type code_ptr = int
+
+  type registers = {
+    s : data_stack;
+    e : environment;
+    c : code_ptr;
+    d : control_stack;
+  }
+  and data_stack = value list
+  and control_stack = control list
+  and environment = frame list
+  and frame = value array
+
+  and value =
+  | Int of int
+  | Pair of value * value
+  | Closure of int * environment
+  | Dummy
+
+  and control =
+  | Join of code_ptr
+  | Ret of code_ptr * environment
+  | Stop
+end
+
+let rec untyped : registers -> Untyped.registers =
+  fun {s;e;c;d} ->
+    let s = untyped_data_stack s in
+    let e = untyped_environment e in
+    let c = untyped_code_ptr c in
+    let d = untyped_control_stack d in
+    Untyped.({s;e;c;d})
+and untyped_data_stack s = List.map untyped_value s
+and untyped_control_stack d = List.map untyped_control d
+and untyped_environment e = List.map untyped_frame e
+and untyped_frame f = Array.map untyped_value f
+and untyped_code_ptr (Code n) = n
+and untyped_value : value -> Untyped.value = function
+  | Value (Int, n) ->
+    Untyped.Int n
+  | Value (Pair, (a, b)) ->
+    Untyped.Pair (untyped_value a, untyped_value b)
+  | Value (Closure, (c, env)) ->
+    Untyped.Closure (untyped_code_ptr c, untyped_environment env)
+  | Value (Dummy, Dummy) ->
+    Untyped.Dummy
+and untyped_control = function
+  | Control (Join, c) ->
+    Untyped.Join (untyped_code_ptr c)
+  | Control (Ret, (c, e)) ->
+    Untyped.Ret (untyped_code_ptr c, untyped_environment e)
+  | Control (Stop, ()) ->
+    Untyped.Stop
