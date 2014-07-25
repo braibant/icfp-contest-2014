@@ -7,6 +7,7 @@ module type MAP =
     val data: Board.t
     val lambda_man_start: int * int
     val ghosts_start: (int * int) array
+    val fruit_position: int * int
   end
 
 exception Reset_positions
@@ -142,8 +143,22 @@ only every few ticks; see the ticks section below.)  *)
 
     begin match state.fright_mode with
           | None -> ()
-          | Some time -> if time = state.tick then state.fright_mode <- None
+          | Some time ->
+             if time = state.tick
+             then state.fright_mode <- None
     end;
+
+    begin let x,y = M.fruit_position in
+          if state.tick = Time.fruit_1_appear
+             || state.tick = Time.fruit_2_appear
+          then set ~x ~y Content.Fruit
+          else if (state.tick = Time.fruit_1_expires
+                   || state.tick = Time.fruit_2_expires)
+                  && get ~x ~y = Content.Fruit
+          then set ~x ~y Content.Empty
+          else ()
+    end;
+
 
     begin
       let x = lman.L.x in
