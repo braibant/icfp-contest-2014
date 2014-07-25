@@ -4,8 +4,8 @@ type t =
   | Pill
   | PowerPill
   | Fruit
-  | LambdaMan
-  | Ghost
+  | LambdaManStart
+  | GhostStart
 
 val to_char: t -> char
 val of_char: char -> t

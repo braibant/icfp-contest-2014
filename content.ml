@@ -4,8 +4,9 @@ type t =
   | Pill
   | PowerPill
   | Fruit
-  | LambdaMan
-  | Ghost
+  | LambdaManStart
+  | GhostStart
+
 
 let to_char = function
   | Wall -> '#'
@@ -13,8 +14,8 @@ let to_char = function
   | Pill -> '.'
   | PowerPill -> 'o'
   | Fruit -> '%'
-  | LambdaMan -> '\\'
-  | Ghost -> '='
+  | LambdaManStart -> '\\'
+  | GhostStart -> '='
 
 let of_char = function
   |'#'  ->  Wall
@@ -22,5 +23,6 @@ let of_char = function
   |'.'  ->  Pill
   |'o'  ->  PowerPill
   |'%'  ->  Fruit
-  |'\\' ->  LambdaMan
-  |'='  ->  Ghost
+  |'\\' ->  LambdaManStart
+  |'='  ->  GhostStart
+  | _ -> assert false
