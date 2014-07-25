@@ -300,13 +300,25 @@ let init_regs =  {
 }
 
 type run_error =
+| Stack_overflow : 'a stack_tag -> run_error
 | Step of step_error * instruction
 | Invalid_code_pointer
 
 exception Run_error of (run_error * registers)
 
+let stack_limit = 10_000
+
+let check_stacks ({s;e;d;_} as regs) =
+  let overflow stack_tag =
+    raise (Run_error (Stack_overflow stack_tag, regs)) in
+  if List.length s > stack_limit then overflow S;
+  if List.length e > stack_limit then overflow E;
+  if List.length d > stack_limit then overflow D;
+  ()
+
 let rec run code regs =
   let error err = raise (Run_error (err, regs)) in
+  check_stacks regs;
   let instr =
     let Code ptr = regs.c in
     try code.(ptr) with _ ->
@@ -336,6 +348,49 @@ let local =
   (* 6 *) ADD;
   (* 7 *) RTN;
   |]
+
+let () = begin
+  match run local init_regs with
+    | {
+        s = [Value (Int, 42)];
+        e = [];
+        c = Code 3;
+        d = [];
+      } -> ()
+    | _ -> failwith "local.gcc test failed"
+end
+
+let goto =
+  let main = Code 6 in
+  let to_ = Code 10 in
+  let go = Code 16 in
+  [|
+(* 0 *)  DUM  2        ; (* 2 top-level declarations *)
+(* 1 *)  LDF  go       ; (* declare function go *)
+(* 2 *)  LDF  to_      ; (* declare function to *)
+(* 3 *)  LDF  main     ; (* main function *)
+(* 4 *)  RAP  2        ; (* load declarations into environment and run main *)
+(* 5 *)  RTN           ; (* final return *)
+(* main: *)
+(* 6 *)  LDC  1        ;
+(* 7 *)  LD   (0, 0)   ; (* var go *)
+(* 8 *)  AP   1        ; (* call go(1) *)
+(* 9 *)  RTN           ;
+(* to: *)
+(* 10 *)  LD   (0, 0)  ; (* var n *)
+(* 11 *)  LDC  1       ;
+(* 12 *)  SUB          ;
+(* 13 *)  LD   (1, 0)   ; (* var go *)
+(* 14 *)  AP   1        ; (* call go(n-1) *)
+(* 15 *)  RTN           ;
+(* go: *)
+(* 16 *)  LD   (0, 0)   ; (* var n *)
+(* 17 *)  LDC  1        ;
+(* 18 *)  ADD           ;
+(* 19 *)  LD   (1, 1)   ; (* var to *)
+(* 20 *)  AP   1        ; (* call to(n+1) *)
+(* 21 *)  RTN           ;
+    |]
 
 (** Useful for debugging: toplevel doesn't pretty-printer GADTs as one
     would expect *)
