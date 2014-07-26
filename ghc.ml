@@ -55,6 +55,8 @@ type state =
     mutable direction: byte option
   }
 
+type code = instr array
+
 let set_direction state direction =
   state.direction <- Some direction
 

@@ -98,7 +98,10 @@ module G = struct
     }
 end
 
-module Make (M : sig val board : Board.t end) =
+module Make (M : sig
+                   val board : Board.t
+                   val ghost_programs : Ghc.code array
+                 end) =
 struct
   include M
 
@@ -251,10 +254,19 @@ struct
 
     state.tick <- state.tick + 1
 
-  let repl =
+  (** Set up the initial values for the various elements of state *)
+  let init : state =
+    let length_ghost_programs = Array.length ghost_programs in
     let ghosts = Array.mapi
                    (fun index position ->
-                    G.make position index (assert false) (assert false)
+                    let program_index =
+                      index mod length_ghost_programs
+                    in
+                    G.make
+                      position
+                      index
+                      program_index
+                      (ghost_programs.(program_index))
                    )
                    (Board.ghosts_start board) in
     let lambda_man = L.make (Board.lambda_man_start board) in
@@ -266,8 +278,9 @@ struct
       lambda_man;
       tick;
       pills;
-      fright_mode
+      fright_mode;
     }
+
 
 
 end

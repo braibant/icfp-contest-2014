@@ -21,8 +21,10 @@ type instr =
 
 type state
 
+type code = instr array
+
 (** [init i c] initialize a ghost of index [i] with code [c].  *)
-val init : int -> instr array -> state
+val init : int -> code -> state
 
 type env = {
   lman_coordinates : (int * int) array;
