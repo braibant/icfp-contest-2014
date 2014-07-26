@@ -10,7 +10,6 @@ rule token = parse
 | ';' { comment lexbuf}
 | ['\n'] {Lexing.new_line lexbuf; token lexbuf}
 | [' ' '\t' ] {token lexbuf}
-| ',' {COMMA (get_pos lexbuf)}
 | "LDC" {LDC (get_pos lexbuf)}
 | "LD" {LD(get_pos lexbuf)}
 | "ADD" {ADD(get_pos lexbuf)}
@@ -50,7 +49,13 @@ and comment = parse
 
 
 {
-  let program input =
+  let program fic =
+    let input = if fic = "-" then stdin else open_in fic in
     let lexbuf = Lexing.from_channel input in
-    Gcc_parser.main token lexbuf
+    let () =
+      lexbuf.Lexing.lex_curr_p <-
+	{lexbuf.Lexing.lex_curr_p with Lexing.pos_fname = fic} in
+    let ans = Gcc_parser.main token lexbuf in
+    let () = if fic <> "-" then close_in input in
+    ans
 }

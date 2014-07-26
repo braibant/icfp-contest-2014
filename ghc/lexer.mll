@@ -32,7 +32,8 @@ rule token = parse
 | "PC" {PC}
 | ['0' - '9']+ as i { INTEGER (int_of_string i)}
 | ':' {COLON}
-| [ 'A' - 'Z' '0' - '9' '_' ]+ as label { LABEL label }
+| [ 'A' - 'Z' 'a' - 'z' '0' - '9' '_' ]+ as label { LABEL label }
+| '%' ([ 'A' - 'Z' 'a' - 'z' '0' - '9' '_' ]+ as global) {GLOBAL global }
 | eof {line := 1; EOF}
 | _ {
   let msg =

@@ -2,6 +2,7 @@
 %token <int> INTEGER
 %token <int> REGISTER
 %token <string> LABEL
+%token <string> GLOBAL
 %token PC
 %token COMMA
 %token COLON
@@ -9,12 +10,16 @@
 %token MOV INC DEC ADD SUB MUL DIV AND OR XOR JLT JEQ JGT INT HLT
 %token JMP
 %token EOF
-%start <(string list * Instr.instr) list> main
+%start < (string * Instr.argument) list* (string list * Instr.instr) list> main
 
 %%
 
 main:
-  code = list(line) EOF {code}
+  globals = list(global)
+  code = list(line) EOF {globals, code}
+
+global:
+  l = GLOBAL COLON COLON a = argument {l,a}
 
 line:
   l = labels i = instr { (l, i) }
@@ -49,6 +54,7 @@ argument:
 | i = INTEGER {Instr.Constant i}
 | LBRK i = INTEGER RBRK {Instr.Location i}
 | l = LABEL {Instr.Label l}
+| g = GLOBAL {Instr.Global g}
 
 labels:
 | l = LABEL COLON tl = labels { l :: tl }
