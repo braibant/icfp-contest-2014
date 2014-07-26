@@ -9,8 +9,7 @@ let main map ghosts lambdaman =
                      let board = board
                      let ghost_programs = ghosts
                      let lambda_program = assert false
-                   end
-                   )
+                   end)
   in
   S.repl ()
 
