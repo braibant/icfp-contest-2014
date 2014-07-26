@@ -36,7 +36,7 @@ let close () = Graphics.close_graph ();;
 
 let show board state =
   draw_board board;
-  for i = 0 to Array.length state.ghosts do
+  for i = 0 to Array.length state.ghosts - 1 do
     let g = state.ghosts.(i) in
     let open G in
     match g.vitality with
@@ -49,17 +49,4 @@ let show board state =
   begin let open L in
     draw_tile m.x m.y 5;
   end;
-;;
-
-let test () =
-  let b = Board.of_lines [
-      "##############";
-      "#.#\\#o#=# #%##";
-      "#            #";
-      "#............#";
-      "##############";
-    ]
-  in
-  init b;
-  ignore (Graphics.wait_next_event [Graphics.Key_pressed]);
 ;;
