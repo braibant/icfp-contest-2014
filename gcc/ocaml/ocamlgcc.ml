@@ -77,6 +77,7 @@ let implementation ppf sourcefile outputprefix =
   instrs
 
 let () =
+  Clflags.native_code := false;
   let print = ref false in
   let exec  = ref true in
   let files = ref [] in
