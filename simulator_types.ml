@@ -31,13 +31,13 @@ type game_state = {
   mutable pills: int;     (* remaining pills *)
   mutable fright_mode: int option;
     (* [Some start_time]
-       means that the fright mode is active since start_time *)
+       means that the fright mode will be active until start_time *)
 }
 
 type state = {
   game : game_state;
   mutable ghost_procs: Ghc.state array;
   ghost_codes : Ghc.code array;
-  mutable lambda_proc: Gcc.registers;
-  lambda_code : Gcc_instr.code;
+  mutable lambda_state : Gcc.value;
+  lambda_step : Gcc.value;
 }

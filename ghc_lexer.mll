@@ -26,6 +26,7 @@ rule token = parse
 | "INT" {INT}
 | "HLT" {HLT}
 | [ 'A' - 'H' ] as reg { REGISTER (int_of_char reg - int_of_char 'A')}
+| "PC" {PC}
 | ['0' - '9']+ as i { INTEGER (int_of_string i)}
 | eof {EOF}
 and comment = parse

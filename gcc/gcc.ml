@@ -71,6 +71,7 @@ let rec print_value fmt = function
   | Value(Closure,(Code c,_)) -> Format.fprintf fmt "(closure %i,_)" c
 
 exception Machine_stop
+exception Break_reached
 exception Step_error of step_error
 
 let error err = raise (Step_error err)
@@ -327,9 +328,9 @@ let step inst = match inst with
 | TAP n -> ap Tail n
 | TRAP n -> rap Tail n
 | ST (n, i) -> st n i
+| BRK -> raise Break_reached
 (* currently unsupported *)
 | DBUG -> failwith "instruction DBUG not yet implemented"
-| BRK -> failwith "instruction BRK not yet implemented"
 
 let init_regs =  {
     s = [];

@@ -1,14 +1,6 @@
-type ('b, 'c) int_or_pair =
-(* do not use; the constructors here are there to pretend that this is
-   an ADT type, not an abstract type, so that -rectypes accept the
-   definition below
-     type 'a flist = ('a, 'a flist) int_or_pair
-   as non-cyclic (otherwhise there are productivity issues)
-*)
-| Foo0
-| Foo1
-| Foo2 of 'b
-| Foo3 of 'c
+
+(*
+most generic version
 
 external left : int -> ('b, 'c) int_or_pair = "gcc_left"
 external right : 'b -> 'c -> ('b, 'c) int_or_pair = "gcc_right"
@@ -16,6 +8,24 @@ external right : 'b -> 'c -> ('b, 'c) int_or_pair = "gcc_right"
 external case
   : ('b, 'c) int_or_pair -> (int -> 'a) -> ('b -> 'c -> 'a) -> 'a
   = "gcc_case"
+*)
+
+
+type +'a flist
+external mk_nil: int -> 'a flist = "gcc_left"
+external cons: 'a -> 'a flist -> 'a flist = "gcc_right"
+
+external case_flist: 'b flist -> (int -> 'a) -> ('b -> 'b flist -> 'a) -> 'a
+  = "gcc_case"
+
+let nil = mk_nil 0
+
+type ('a,'b) pair
+external pair: 'a -> 'b -> ('a,'b) pair = "gcc_right"
+external case_pair_aux:
+  ('a,'b) pair -> (int -> 'c) -> ('a -> 'b -> 'c) -> 'c = "gcc_case"
+
+let case_pair p f = case_pair_aux p (fun _ -> assert false) f
 
 (*
 external case_const
@@ -23,21 +33,13 @@ external case_const
   = "gcc_case_const"
 *)
 let case_const
-    : ('b, 'c) int_or_pair -> 'a -> ('b -> 'c -> 'a) -> 'a
+  : 'b flist -> 'a -> ('b -> 'b flist -> 'a) -> 'a
   = fun data left right ->
-    case data (fun _ -> left) right
+    case_flist data (fun _ -> left) right
 
-type 'a option =
-| Some of 'a
-| None
-
-type 'a flist = ('a, 'a flist) int_or_pair
-let nil : 'a flist = left 0
-let cons x xs = right (x, xs)
-
-let rec fold_left f acc li =
+let rec fold_left (f:'a -> 'b -> 'a) (acc:'a) (li:'b flist) =
   case_const li acc
-    (fun x xs -> fold_left (f acc x) xs)
+    (fun x xs -> fold_left f (f acc x) xs)
 
 type 'a status =
 | Continue of 'a
@@ -49,3 +51,11 @@ let rec fold_left_stop f acc li =
       match f acc x with
         | Stop v -> v
         | Continue acc -> fold_left_stop f acc xs)
+
+let rec flist_of_list = function
+  | [] -> nil
+  | a::l -> cons a (flist_of_list l)
+
+let f i x = let r = i*x in if r > 10 then Stop(r) else Continue r
+
+let main_gcc = fold_left_stop f 1 (flist_of_list [1;2;3;4;5])

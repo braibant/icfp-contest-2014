@@ -1,0 +1,157 @@
+; Mapping from direction i to 2^i
+MOV [0], 1
+MOV [1], 2
+MOV [2], 4
+MOV [3], 8
+; Mapping from 2^i to direction i
+MOV [4], 0
+MOV [5], 1
+MOV [7], 2
+MOV [11], 3
+
+; In the following code, we use the following conventions.
+; #declare allocates the code for a function.
+; variables with a %syntax can be any register or memory-location
+; variables which are modified or erasedby the function are specified.
+
+; compute the next position according to dir
+; %x, %y is updated with this new position
+#declare next (%x,%y,%dir,%return)
+MUL %dir, 2
+INC %dir
+ADD PC, %dir
+SUB %y, 1   ; code for 0
+GOTO end
+ADD %x, 1   ; code for 1
+GOTO end
+ADD %y, 1   ; code for 2
+GOTO end
+SUB %x, 1   ; code for 3
+GOTO end
+end:
+GOTO %return
+#end
+
+; compute the bitset of walls around %x, %y
+#declare walling (%walls, %nwalls, %x,%y, %return)
+MOV %walls, 0
+MOV %nwalls, 0
+MOV %dir, 0
+loop:
+MOV C, %dir
+CALL next (x, y, dir)
+MOV A, x
+MOV B, y
+INT 7
+JEQ else, A, 0; is wall
+LOR %walls, [%dir] ; assume that we have [1;2;4;8] in the [0;3] addresses
+INC %nwalls
+else:
+INC dir
+JLT loop, dir, 4; else, we have finished
+GOTO %return
+
+; follow a line
+#declare follow
+         (%x,
+          %y,
+          %dir,
+          %lambda-man-x,
+          %lambda-man-y,
+          %length,
+          %lambda-man,
+          %return)
+start_follow:
+CALL walling (%walls,%nwalls,%x,%y);
+JGT finished, %nwalls, 2
+OR  %walls, [%dir]
+NOT %walls
+AND %walls, 15
+MOV %dir, [%walls]
+; dir is the only possible direction
+INC %length
+; test if the lambda-man is here
+JEQ test_x,%x, %lambda-man-x
+GOTO step
+JEQ test_xy,%y, %lambda-man-y
+GOTO step
+test_xy:
+MOV %lambda-man, 1
+step:
+next (x,y,dir)
+GOTO start_follow
+finished:
+MOV PC, %return
+#end
+
+
+
+
+; compute x mod 4
+AND x, 3
+
+; reverse direction
+XOR x, 1
+
+; compute the number of walls around %x,%y
+MOV %walls, 0
+MOV %dir, 0
+loop:
+MOV C, %dir
+MOV H, PC ; store return pointer
+ADD H,3   ; modify return pointer to point to correct position
+next x, y, C
+MOV A, x
+MOV B, y
+INT 7
+JEQ else, A, 0; is wall
+INC walls
+else: INC dir
+JLT loop, dir, 4; else, we have finished
+
+; compute the bitset of walls around %x, %y
+walling (%walls, %nwalls, %x,%y)
+MOV %walls, 0
+MOV %nwalls, 0
+MOV %dir, 0
+loop:
+MOV C, %dir
+MOV H, PC ; store return pointer
+ADD H,3   ; modify return pointer to point to correct position
+next x, y, C
+MOV A, x
+MOV B, y
+INT 7
+JEQ else, A, 0; is wall
+LOR %walls, [%dir] ; assume that we have [1;2;4;8] in the [0;3] addresses
+INC %nwalls
+else: INC dir
+JLT loop, dir, 4; else, we have finished
+
+; given a bitset, and a direction, remove this direction from the bitset
+XOR %dir, 255 ; bitwise not
+AND %bitset, %dir
+
+; follow a line
+follow(%x,%y,%dir, %length, %lambda-man-x, %lambda-man-y, %lambda-man, %return)
+; %walls is D
+; %nwalls i E
+MOV H, PC;
+ADD H, 3;
+walling (%walls,%nwalls,%x,%y);
+JGT finished, E, 2
+OR  %walls, [%dir]
+NOT %walls
+AND %walls, 15
+MOV %dir, [%walls]
+; dir is the only possible direction
+INC %length
+; test if the lambda-man is here
+JEQ test_x,%x, %lambda-man-x
+GOTO follow
+JEQ test_xy,%y, %lambda-man-y
+GOTO follow
+test_xy:
+MOV %lambda-man, 1
+finished:
+MOV PC, %return
