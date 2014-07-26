@@ -49,10 +49,12 @@ let load_var env x =
 type error =
   | Tag_not_null
   | Field_access_invalid
+  | Empty_block
 
 let print_error fmt = function
   | Tag_not_null -> Format.pp_print_string fmt "tag not null"
   | Field_access_invalid -> Format.pp_print_string fmt  "field access invalid"
+  | Empty_block -> Format.pp_print_string fmt  "empty block"
 
 exception Not_implemented of lambda
 exception Error of error * lambda
@@ -69,6 +71,9 @@ let rec compile env lambda =
     if tag != 0 then raise (Error(Tag_not_null,lambda));
     let l = List.map (fun x -> Lconst x) l in
     compile env (Lprim(Pmakeblock(tag,Asttypes.Immutable),l))
+
+  | Lprim(Pmakeblock(_,Asttypes.Immutable),[]) ->
+    raise (Error(Empty_block,lambda))
 
   | Lprim(Pmakeblock(tag,Asttypes.Immutable),l) ->
     if tag != 0 then raise (Error(Tag_not_null,lambda));
