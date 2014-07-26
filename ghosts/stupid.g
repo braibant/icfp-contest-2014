@@ -78,7 +78,6 @@ l4:
   jeq go, a, 0
 
   add c, 2
-  int 8
 
 go:
   and c, 3        ; reduce modulo 4
