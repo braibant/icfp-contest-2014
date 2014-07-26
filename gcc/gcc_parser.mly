@@ -3,7 +3,6 @@
 %}
 
 %token <(Lexing.position*Lexing.position)*int> INTEGER
-%token <Lexing.position*Lexing.position> COMMA
 %token <Lexing.position*Lexing.position> LDC LD ADD SUB MUL DIV CEQ CGT CGTE
 					     ATOM CONS CAR CDR SEL JOIN LDF
 					     AP RTN DUM RAP STOP TSEL TAP TRAP

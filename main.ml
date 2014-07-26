@@ -8,7 +8,8 @@ let main map ghosts lambdaman =
                    (struct
                      let board = board
                      let ghost_programs = ghosts
-                     let lambda_program = assert false
+                     let lambda_program =
+		       Array.of_list (Gcc_lexer.program lambdaman)
                    end)
   in
   S.repl ()
