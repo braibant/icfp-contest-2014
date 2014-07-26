@@ -94,11 +94,6 @@ let nth : type a . a stack_tag -> a list -> int -> a =
    try List.nth stack n
    with _ -> error (Empty_stack tag)
 
-let ldc n {s;e;c;d} =
-  let s = tag Int n :: s in
-  let c = next_instr c in
-  {s;e;c;d}
-
 let frame_index_check frame i =
   if Array.length frame <= i
   then error Invalid_frame_index
@@ -114,6 +109,11 @@ let frame_set frame i v = match frame with
   | Frame tab ->
     frame_index_check tab i;
     tab.(i) <- v
+
+let ldc n {s;e;c;d} =
+  let s = tag Int n :: s in
+  let c = next_instr c in
+  {s;e;c;d}
 
 let ld n i {s;e;c;d} =
   let frame = nth E e n in
@@ -198,7 +198,7 @@ let ldf f {s;e;c;d} =
 let ap tail n {s;e;c;d} =
   let x, s = pop S s in
   let (closure_code, closed_env) = untag Closure x in
-  let new_env, s =
+  let new_frame, s =
     let cur_s = ref s in
     let args = ref [] in
     for i = 0 to n - 1 do
@@ -207,7 +207,7 @@ let ap tail n {s;e;c;d} =
       cur_s := s;
     done;
     let frame = Frame (Array.of_list !args) in
-    frame :: closed_env, !cur_s in
+    frame, !cur_s in
   let d = match tail with
     | Tail -> d
     | Non_tail ->
@@ -216,7 +216,7 @@ let ap tail n {s;e;c;d} =
          the code pointer and the environment,
          instead of storing them as two separate stack slots *)
       control_tag Ret (next_instr c, e) :: d in
-  let e = new_env in
+  let e = new_frame :: closed_env in
   let c = closure_code in
   {s;e;c;d}
 
