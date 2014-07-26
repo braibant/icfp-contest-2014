@@ -36,7 +36,6 @@ type code = instruction array
 open Format
 
 let print_instruction r fmt instr =
-  fprintf fmt "%3i: " !r; incr r;
   match instr with
   | LDC i -> fprintf fmt "LDC %i" i
   | LD(i,j) -> fprintf fmt "LD %i %i" i j
@@ -65,6 +64,11 @@ let print_instruction r fmt instr =
   | ST(i,j) -> fprintf fmt "ST %i %i" i j
   | DBUG -> fprintf fmt "DBUG@."
   | BRK -> fprintf fmt "BRK@."
+
+
+let print_instruction r fmt instr =
+  print_instruction r fmt instr;
+  fprintf fmt "; %3i " !r; incr r
 
 
 let print_instructions fmt l =
