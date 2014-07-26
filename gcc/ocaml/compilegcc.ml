@@ -141,6 +141,21 @@ let rec compile env lambda =
     compile env (Lprim(Pintcomp(Cge),[a2;a1]))
   | Lprim(Psetglobal _,[e]) -> compile env e
 
+  (** primitive boolean *)
+  | Lprim(Psequand,[a1;a2]) ->
+    let a2 = save_instrs env (compile env a2@[JOIN]) in
+    let false_ = save_instrs env ([LDC 0;JOIN]) in
+    (compile env a1)@[SEL(a2,false_)]
+  | Lprim(Psequor,[a1;a2]) ->
+    let a2 = save_instrs env (compile env a2@[JOIN]) in
+    let true_ = save_instrs env ([LDC 1;JOIN]) in
+    (compile env a1)@[SEL(true_,a2)]
+  | Lprim(Pnot,[a1]) ->
+    let false_ = save_instrs env ([LDC 0;JOIN]) in
+    let true_ = save_instrs env ([LDC 1;JOIN]) in
+    (compile env a1)@[SEL(false_,true_)]
+
+
   (** controlflow *)
   | Lifthenelse (e1, e2, e3) ->
     let e2 = save_instrs env (compile env e2@[JOIN]) in
