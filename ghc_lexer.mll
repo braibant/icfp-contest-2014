@@ -5,8 +5,8 @@
 
 rule token = parse
 | ';' { comment lexbuf}
-| '\n' {EOL}
-| [' ' '\t'] {token lexbuf}
+| ['\n'] {token lexbuf}
+| [' ' '\t' ] {token lexbuf}
 | ',' {COMMA}
 | '[' {LBRK}
 | ']' {RBRK}
@@ -26,6 +26,9 @@ rule token = parse
 | "INT" {INT}
 | "HLT" {HLT}
 | [ 'A' - 'H' ] as reg { REGISTER (int_of_char reg - int_of_char 'A')}
-| ['0' - '9']+ as i { INTEGER (string_of_int i)}
-| eof {raise Eof}
-and comment = parse | [^ '\n'] {comment lexbuf}
+| ['0' - '9']+ as i { INTEGER (int_of_string i)}
+| eof {EOF}
+and comment = parse
+| [^ '\n'] {comment lexbuf}
+| ['\n'] {token lexbuf}
+| eof {EOF}

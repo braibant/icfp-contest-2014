@@ -5,6 +5,9 @@ all:
 display_test: tiles.ml
 	ocamlbuild -tag debug display_test.byte
 
+ghc_test:
+	ocamlbuild -tag debug ghc_test.byte
+
 tiles.ml: tiles.xpm make-tiles.sh
 	./make-tiles.sh
 
