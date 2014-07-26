@@ -254,16 +254,10 @@ struct
 
     game.tick <- game.tick + 1
 
+  let ghosts_start = Board.ghosts_start board
+
   (** Set up the initial values for the various elements of state *)
-  let init : state =
-    let length_ghost_programs = Array.length ghost_programs in
-    let ghosts_start = Board.ghosts_start board in
-    let ghost_indices =
-      Array.mapi
-        (fun index _ -> index mod length_ghost_programs)
-        ghosts_start in
-    let ghost_codes =
-      Array.map (fun index -> ghost_programs.(index)) ghost_indices in
+  let game : game_state =
     let ghosts =
       Array.mapi
         (fun index position -> G.make position index)
@@ -272,13 +266,23 @@ struct
     let tick = 1 in
     let pills = Board.pills board in
     let fright_mode = None in
-    let game = {
+    {
       ghosts;
       lambda_man;
       tick;
       pills;
       fright_mode;
-    } in
+    }
+
+  (** Set up the initial values for the coprocessors *)
+  let init : state =
+    let length_ghost_programs = Array.length ghost_programs in
+    let ghost_indices =
+      Array.mapi
+        (fun index _ -> index mod length_ghost_programs)
+        ghosts_start in
+    let ghost_codes =
+      Array.map (fun index -> ghost_programs.(index)) ghost_indices in
     let ghost_procs = Array.mapi Ghc.init ghost_codes in
     let lambda_proc = Gcc.init_regs in
     let lambda_code = lambda_program in
