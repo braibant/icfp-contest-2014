@@ -37,4 +37,4 @@ type env = {
 (** [execute env state] is a complete execution of a ghost code. It
 may return a new direction for the ghost, which is coded as an integer
 in the [ 0; 3 ] range. *)
-val execute : env -> state -> int option
+val execute : ?debug:bool -> env -> state -> int option
