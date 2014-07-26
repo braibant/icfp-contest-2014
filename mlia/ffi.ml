@@ -20,6 +20,12 @@ external case_flist: 'b flist -> (int -> 'a) -> ('b -> 'b flist -> 'a) -> 'a
 
 let nil = mk_nil 0
 
+type ('a,'b) pair
+external pair: 'a -> 'b -> ('a,'b) pair = "gcc_right"
+external case_pair_aux:
+  ('a,'b) pair -> (int -> 'c) -> ('a -> 'b -> 'c) -> 'c = "gcc_case"
+
+let case_pair p f = case_pair_aux p (fun _ -> assert false) f
 
 (*
 external case_const

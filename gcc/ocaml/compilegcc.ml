@@ -166,6 +166,8 @@ let rec compile env lambda =
     let call = save_instrs env [LD(0,0);ATOM;TSEL(run_left,run_right)] in
     (compile env l) @ (compile env left) @ (compile env right) @
     [LDF(call);AP(3)]
+  (** exception *)
+  | Lprim(Praise,_) -> [BRK]
   | e -> raise (Not_implemented e)
 
 
@@ -187,18 +189,18 @@ let builtin_match_list_alpha =
 let compile expr =
   let env =  {cenv = MStr.empty; slots = {sinstr=[];snext=10}} in
   let main = save_instrs env ((compile env expr)@[RTN]) in
-  (* 0 *) (LDF main)::
-          (* 1 *)(AP 0)::
-          (* 2 *)STOP::
-          (** function is not null *)
-          (* 3 *) LD(0,0)::
-          (* 4 *) ATOM::
-          (* 5 *) TSEL(Code 6,Code 8)::
-          (* 6 *) LD(0,0)::
-          (* 7 *) RTN::
-          (* 8 *) LDC(1)::
-          (* 9 *) RTN ::
-          (* 10 *) (get_slots env)
+  LDF(main):: (* 0 *)
+  AP(0):: (* 1 *)
+  STOP:: (* 2 *)
+  (** function is not null *)
+  LD(0,0):: (* 3 *)
+  ATOM:: (* 4 *)
+  TSEL(Code 6,Code 8):: (* 5 *)
+  LD(0,0):: (* 6 *)
+  RTN:: (* 7 *)
+  LDC(1):: (* 8 *)
+  RTN :: (* 9 *)
+  (get_slots env)
 
 
 let compile_implementation _modulename (e:Lambda.lambda) =
