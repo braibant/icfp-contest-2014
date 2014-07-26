@@ -101,6 +101,7 @@ end
 module Make (M : sig
                    val board : Board.t
                    val ghost_programs : Ghc.code array
+                   val lambda_man : unit
                  end) =
 struct
   include M
