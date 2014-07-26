@@ -1,7 +1,7 @@
 ; stupid.g
 
-; start by moving randomly for 100 steps, then
-; always move into the direction closest to lambda-man's position
+; start by moving up for 6 steps, then right for 6 steps, etc,
+; then always move into the direction closest to lambda-man's position
 
 
 ; detect sudden jumps in position and reset the start counter
