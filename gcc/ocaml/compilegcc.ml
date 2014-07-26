@@ -68,8 +68,8 @@ let rec compile env lambda =
     compile env (Lprim(Pintcomp(Cge),[a2;a1]))
   | Lprim(Psetglobal _,[e]) -> compile env e
   | Lifthenelse (e1, e2, e3) ->
-    let e2 = save_instrs env (compile env e2) in
-    let e3 = save_instrs env (compile env e3) in
+    let e2 = save_instrs env (compile env e2@[JOIN]) in
+    let e3 = save_instrs env (compile env e3@[JOIN]) in
     (compile env e1) @ [SEL(e2,e3)]
   | Lletrec (fs, e) ->
     let env = shift_frame env in
@@ -79,8 +79,9 @@ let rec compile env lambda =
         let e = save_instrs env (compile env e@[RTN]) in
         [LDF e; RAP n]
       | (_,e)::l ->
-        let e = save_instrs env (compile env e@[RTN]) in
-        (LDF e)::(save_fs env l)
+        let e = compile env e in
+        (match e with [LDF _] -> () | _ -> raise (Not_implemented lambda));
+        e@(save_fs env l)
     in
     (DUM n)::save_fs env fs
   | Lfunction (Curried, args, e) ->
@@ -89,7 +90,8 @@ let rec compile env lambda =
     let e = save_instrs env (compile env e@[RTN]) in
     [LDF e]
   | Lapply (e1, args, _) ->
-    (List.concat (List.map (compile env) args)) @ (compile env e1) @ [AP 1]
+    (List.concat (List.map (compile env) args)) @ (compile env e1) @
+    [AP (List.length args)]
   (** stop compiling at main_gcc *)
   | Llet(_,main,e1,_) when main.Ident.name = "main_gcc"  ->
     compile env e1

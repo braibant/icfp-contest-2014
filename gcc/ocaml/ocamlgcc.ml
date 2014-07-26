@@ -102,6 +102,9 @@ let () =
     | Compilegcc.Not_implemented e ->
       Format.eprintf "Not implemented lambda: %a@." Printlambda.lambda e;
       exit 2
+    | Gcc.Run_error(error,{Gcc.c=Code c}) ->
+        Format.eprintf "Gcc Error at %i: %a@."
+          c Gcc.print_run_error error; exit 1
     | x ->
       Errors.report_error Format.err_formatter x;
       exit 2
