@@ -73,3 +73,9 @@ let print_instruction r fmt instr =
 
 let print_instructions fmt l =
   Pp.print_list Pp.newline (print_instruction (ref 0)) fmt l
+
+let print_position fmt (pos,pos_end) =
+  Format.fprintf fmt "File \"%s\", line %i, characters %i-%i:@."
+		 pos.Lexing.pos_fname pos.Lexing.pos_lnum
+		 (pos.Lexing.pos_cnum - pos.Lexing.pos_bol)
+		 (pos_end.Lexing.pos_cnum - pos.Lexing.pos_bol)

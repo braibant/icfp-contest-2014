@@ -1,5 +1,3 @@
-open Ffi
-
 type ghost_vitality =
 | (* 0 *) Standard
 | (* 1 *) Fright_mode
@@ -41,9 +39,9 @@ type ghost_status = {
 type t = {
   map : map;
   lambda : lambda_status;
-  ghosts : ghost_status flist;
+  ghosts : ghost_status list;
   fruits : fruit_status;
 }
-and map = square flist flist
+and map = square list list
 
 

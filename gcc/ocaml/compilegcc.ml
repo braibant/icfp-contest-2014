@@ -46,8 +46,18 @@ let load_var env x =
   let addr = MStr.find (Ident.unique_name x) env.cenv in
   LD (addr.aframe,addr.avar)
 
+type error =
+  | Tag_not_null
+  | Field_access_invalid
+  | Empty_block
+
+let print_error fmt = function
+  | Tag_not_null -> Format.pp_print_string fmt "tag not null"
+  | Field_access_invalid -> Format.pp_print_string fmt  "field access invalid"
+  | Empty_block -> Format.pp_print_string fmt  "empty block"
 
 exception Not_implemented of lambda
+exception Error of error * lambda
 
 (** [compile e] compiles program [e] into a list of machine instructions. *)
 let rec compile env lambda =
@@ -58,24 +68,30 @@ let rec compile env lambda =
   | Lconst(Const_base(Asttypes.Const_int(k))) -> [LDC k]
   | Lconst(Const_pointer(k)) -> [LDC k]
   | Lconst(Const_block(tag,l)) ->
+    if tag != 0 then raise (Error(Tag_not_null,lambda));
     let l = List.map (fun x -> Lconst x) l in
     compile env (Lprim(Pmakeblock(tag,Asttypes.Immutable),l))
 
+  | Lprim(Pmakeblock(_,Asttypes.Immutable),[]) ->
+    raise (Error(Empty_block,lambda))
+
   | Lprim(Pmakeblock(tag,Asttypes.Immutable),l) ->
+    if tag != 0 then raise (Error(Tag_not_null,lambda));
     let rec make = function
       | [] -> assert false
       | [a] -> compile env a @ [LDC 0; CONS]
-      (* | [a;b] -> (compile env a) @ (compile env b) @ [CONS] *)
+      | [a;b] -> (compile env a) @ (compile env b) @ [CONS]
       | a::l  -> (compile env a) @ (make l) @ [CONS]
     in
-    (LDC tag) :: (make l) @ [CONS]
+    (make l)
+
+  | Lprim(Pisint,[a]) -> (compile env a) @ [ATOM]
 
   (** accessor *)
-  | Lprim(Pfield(i),[a]) ->
-    let rec mk_access acc i =
-      if i <= 0 then List.rev (CAR::acc)
-      else mk_access (CDR::acc) (i-1) in
-    (compile env a) @ (mk_access [(** remove tag *) CDR] i)
+  | Lprim(Pfield(0),[a]) -> (compile env a) @ [CAR]
+  | Lprim(Pfield(1),[a]) -> (compile env a) @ [CDR]
+  | Lprim(Pfield(_),[_]) ->
+    raise (Error(Field_access_invalid,lambda))
 
   (** switch *)
   | Lswitch (Lvar(v), ({sw_failaction = None} as switch)) ->
@@ -89,21 +105,23 @@ let rec compile env lambda =
         let l = save_instrs env (switch_int env ~first:false last v l) in
         v::LDC(i)::CEQ::(if first then [SEL(e,l)] else [TSEL(e,l)]) in
     let mk_const ~first = switch_int env ~first JOIN v switch.sw_consts in
-    let mk_block () =
-      let env = shift_frame env in
-      let tag = (LD(0,0)) in
-      let l = switch.sw_blocks in
-      let l = save_instrs env (switch_int env ~first:false RTN tag l) in
-      [v;CAR;LDF(l);AP(1)]
-    in
+    (* let mk_block () = *)
+    (*   let env = shift_frame env in *)
+    (*   let tag = (LD(0,0)) in *)
+    (*   let l = switch.sw_blocks in *)
+    (*   let l = save_instrs env (switch_int env ~first:false RTN tag l) in *)
+    (*   [v;CAR;LDF(l);AP(1)] *)
+    (* in *)
     begin match switch.sw_consts, switch.sw_blocks with
-      | [], [] -> assert false
+      | [], [] -> assert false (** nothing, no switch *)
       | _, [] -> mk_const ~first:true
-      | [], _ -> mk_block ()
-      | _, _ ->
-        let lint = save_instrs env (mk_const ~first:false) in
-        let lblock = save_instrs env (mk_block ()@[JOIN]) in
-        [v;ATOM;SEL(lint,lblock)]
+      | _, _::_::_ -> raise (Error(Tag_not_null,lambda))
+      | [], [_] -> assert false (** one case? no switch *)
+      | _, [_] ->
+        assert false (** TODO: I though that only use isint in this case *)
+        (* let lint = save_instrs env (mk_const ~first:false) in *)
+        (* let lblock = save_instrs env (mk_block ()@[JOIN]) in *)
+        (* [v;ATOM;SEL(lint,lblock)] *)
     end
 
   (** primitive arithmetic *)
@@ -122,6 +140,21 @@ let rec compile env lambda =
   | Lprim(Pintcomp(Cle),[a1;a2]) ->
     compile env (Lprim(Pintcomp(Cge),[a2;a1]))
   | Lprim(Psetglobal _,[e]) -> compile env e
+
+  (** primitive boolean *)
+  | Lprim(Psequand,[a1;a2]) ->
+    let a2 = save_instrs env (compile env a2@[JOIN]) in
+    let false_ = save_instrs env ([LDC 0;JOIN]) in
+    (compile env a1)@[SEL(a2,false_)]
+  | Lprim(Psequor,[a1;a2]) ->
+    let a2 = save_instrs env (compile env a2@[JOIN]) in
+    let true_ = save_instrs env ([LDC 1;JOIN]) in
+    (compile env a1)@[SEL(true_,a2)]
+  | Lprim(Pnot,[a1]) ->
+    let false_ = save_instrs env ([LDC 0;JOIN]) in
+    let true_ = save_instrs env ([LDC 1;JOIN]) in
+    (compile env a1)@[SEL(false_,true_)]
+
 
   (** controlflow *)
   | Lifthenelse (e1, e2, e3) ->
@@ -170,21 +203,6 @@ let rec compile env lambda =
   | Lprim(Praise,_) -> [BRK]
   | e -> raise (Not_implemented e)
 
-
-(*
-let builtin_match_list_alpha =
-  let env = shift_frame env in
-  let env = add_frame env "l"     {aframe=0;avar=0} in
-  let env = shift_frame env in
-  let env = add_frame env "fint"  {aframe=0;avar=0} in
-  let env = shift_frame env in
-  let env = add_frame env "flist" {aframe=0;avar=0} in
-  let fint_call = compile env [APPLY(Var "fint",Var "l") in
-  let fint_call = save_instrs env fint_call in
-  let flist_call = (compile env [Var "flist"])@[AP 2] in
-  let flist_call = save_instrs env fint_call in
-  (compile env (Var l))@[ATOM]@[TSEL(fint_call,flist_call)]
-*)
 
 let compile expr =
   let env =  {cenv = MStr.empty; slots = {sinstr=[];snext=10}} in
