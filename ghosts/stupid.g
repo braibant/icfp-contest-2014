@@ -3,31 +3,46 @@
 ; start by moving randomly for 100 steps, then
 ; always move into the direction closest to lambda-man's position
 
-  ; mov a, [0]
-  ; and a, 7
-  ; jgt follow, a, 0
-  ; inc [0]
 
-  ; int 3
-  ; add a, [0]
-  ; mul a, 27
-  ; and a, 3
-  ; int 0
-  ; hlt
+; detect sudden jumps in position and reset the start counter
+  int 3
+  int 5
+  sub a, [1]
+  sub b, [2]
+  add a, b
+  add a, 1
+  jlt nojump, a, 3
+  mov [0], 0
+
+nojump:
+  int 3
+  int 5
+  mov [1], a
+  mov [2], b
+  jgt follow, [0], 24
+  ; the start counter is low: try to get out of the start box
+  inc [0]
+  mov b, [0]
+  div b, 6
+  int 3
+  add a, b
+  and a, 3
+  int 0
+  hlt
 
 follow:
   int 1     ; get lman's coordinates in A and B
   mov c, a  ; c = lman.x
   mov d, b  ; d = lman.y
   int 3     ; get this ghost's index
-  int 4
+  int 5
   mov e, a  ; e = my.x
   mov f, b  ; f = my.y
 
 ; compute direction
 
   mov a, 1     ; alpha
-  mov b, 255   ; phi
+  mov b, 1     ; phi
   mov g, c
   sub g, e     ; absx = dx  = lman.x - my.x
   mov h, f
@@ -53,9 +68,20 @@ l3:               ; else
     sub a, b      ; subtract phi
 
 l4:
-  div a, 2
-  and a, 3        ; reduce modulo 4
+  div a, 2        ; direction of lambda-man
+  mov c, a
 
-l5:
-  int 0 ; direction is in a
+; if panic mode, reverse direction
+
+  int 3
+  int 6
+  jeq go, a, 0
+
+  add c, 2
+  int 8
+
+go:
+  and c, 3        ; reduce modulo 4
+  mov a, c
+  int 0           ; direction is in a
   hlt

@@ -1,7 +1,7 @@
 type t = int 			(* 0 to 255 *)
 
 let norm x =
-  let r = a mod 256 in
+  let r = x mod 256 in
   if r < 0
   then r + 256
   else r
