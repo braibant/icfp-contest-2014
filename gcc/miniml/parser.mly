@@ -63,8 +63,8 @@ expr:
 
   | boolean             { $1 }
   | IF expr THEN expr ELSE expr	{ If ($2, $4, $6) }
-  | FUN REC VAR LPAREN VAR COLON ty RPAREN COLON ty TARROW expr
-      { FunRec ($3, $5, $7, $10, $12) }
+  | LET REC VAR LPAREN VAR COLON ty RPAREN COLON ty EQUAL expr IN expr
+      { LetRec ($3, $5, $7, $10, $12, $14) }
   | FUN LPAREN VAR COLON ty RPAREN TARROW expr
       { Fun ($3, $5, $8) }
   | LET VAR COLON ty EQUAL expr IN expr

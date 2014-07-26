@@ -21,7 +21,8 @@ type expr =
   | GT of expr * expr   		(* Integer comparison [e1 > e2] *)
   | GTE of expr * expr   		(* Integer comparison [e1 >= e2] *)
   | If of expr * expr * expr 		(* Conditional [if e1 then e2 else e3] *)
-  | FunRec of name * name * ty * ty * expr (* Function [fun f(x:s):t is e] *)
+  | LetRec of name * name * ty * ty * expr * expr
+    (* Function [let rec f(x:s):t -> e in e] *)
   | Fun of name * ty * expr (* Function [fun f(x:s):t is e] *)
   | Apply of expr * expr 		(* Application [e1 e2] *)
 
@@ -60,9 +61,10 @@ let string_of_expr e =
 	| GTE (e1, e2) -> (3, (to_str 3 e1) ^ " >= " ^ (to_str 3 e2))
 	| If (e1, e2, e3) -> (2, "if " ^ (to_str 2 e1) ^ " then " ^
 				(to_str 2 e2) ^ " else " ^ (to_str 2 e3))
-	| FunRec (f, x, ty1, ty2, e) ->
-	    (1, "funrec " ^ f ^ "(" ^ x ^ " : " ^ (string_of_type ty1) ^ 
-	       ") : " ^ (string_of_type ty2) ^ " -> " ^ (to_str 0 e))
+	| LetRec (f, x, ty1, ty2, e1, e2) ->
+	    (1, "letrec " ^ f ^ "(" ^ x ^ " : " ^ (string_of_type ty1) ^ 
+	       ") : " ^ (string_of_type ty2) ^ " -> " ^ (to_str 0 e1) ^
+         " in " ^ (to_str 0 e2))
 	| Fun (x, ty1, e) ->
 	    (1, "fun " ^ "(" ^ x ^ " : " ^ (string_of_type ty1) ^ 
 	       ")" ^ " -> " ^ (to_str 0 e))
@@ -85,9 +87,10 @@ let rec subst s = function
   | GT (e1, e2) -> GT (subst s e1, subst s e2)
   | GTE (e1, e2) -> GTE (subst s e1, subst s e2)
   | If (e1, e2, e3) -> If (subst s e1, subst s e2, subst s e3)
-  | FunRec (f, x, ty1, ty2, e) ->
+  | LetRec (f, x, ty1, ty2, e1, e2) ->
       let s' = List.remove_assoc f (List.remove_assoc x s) in
-	FunRec (f, x, ty1, ty2, subst s' e)
+      let s'' = List.remove_assoc f s in
+	LetRec (f, x, ty1, ty2, subst s' e1, subst s'' e2)
   | Fun (x, ty1, e) ->
       let s' = (List.remove_assoc x s) in
 	Fun (x, ty1, subst s' e)

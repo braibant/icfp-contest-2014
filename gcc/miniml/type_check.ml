@@ -37,9 +37,9 @@ and type_of ctx = function
       check ctx TBool e1 ;
       let ty = type_of ctx e2 in
 	check ctx ty e3 ; ty
-  | FunRec (f, x, ty1, ty2, e) ->
-      check ((f, TArrow(ty1,ty2)) :: (x, ty1) :: ctx) ty2 e ;
-      TArrow (ty1, ty2)
+  | LetRec (f, x, ty1, ty2, e1, e2) ->
+      check ((f, TArrow(ty1,ty2)) :: (x, ty1) :: ctx) ty2 e1;
+      type_of ((f, TArrow(ty1,ty2)) ::ctx) e2
   | Fun (x, ty1, e) ->
     let ty2 = type_of ((x, ty1) :: ctx) e in
     TArrow (ty1, ty2)

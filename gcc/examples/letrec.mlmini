@@ -1,0 +1,2 @@
+let rec f (i:int) : int = if i > 10 then i else f (i+1) in
+f 0

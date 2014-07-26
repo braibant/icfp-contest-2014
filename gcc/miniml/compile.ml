@@ -54,7 +54,14 @@ let rec compile env = function
     let e2 = save_instrs env (compile env e2) in
     let e3 = save_instrs env (compile env e3) in
     (compile env e1) @ [SEL(e2,e3)]
-  | FunRec (_f, _x, _, _, _e) -> invalid_arg "not implemented"
+  | LetRec (f, x, _, _, e1, e2) ->
+    let env = shift_frame env in
+    let env = add_frame env f {aframe=0;avar=0} in
+    let env' = shift_frame env in
+    let env' = add_frame env' x {aframe=0;avar=0} in
+    let e1 = save_instrs env' (compile env' e1@[RTN]) in
+    let e2 = save_instrs env (compile env e2@[RTN]) in
+    [DUM 1; LDF e1; LDF e2; RAP 1]
   | Fun (x, _, e) ->
     let env = shift_frame env in
     let env = add_frame env x {aframe=0;avar=0} in
