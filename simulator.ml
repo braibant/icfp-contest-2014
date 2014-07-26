@@ -281,6 +281,13 @@ struct
       fright_mode;
     }
 
-
-
+  (** [repl] stands for Read-Eval-Print-Loop and is the main loop for
+  our simulator.  *)
+  let repl () =
+    let state = init in
+    Display.init board;
+    while true do
+      Display.show board state;
+      tick state
+    done
 end
