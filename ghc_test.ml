@@ -1,6 +1,5 @@
-let _ = Printf.printf "0\n%!"
-let _ = Ghc_misc.of_file "miner.ghc"
-let _ = Printf.printf "1\n%!"
-let _ = Ghc_misc.of_file "flipper.ghc"
-let _ = Printf.printf "2\n%!"
-let _ = Ghc_misc.of_file "frickle.ghc"
+let test file =
+  let e = Ghc_misc.of_file file in
+  Format.printf "===%s===\n%a" file Ghc_misc.pp e
+
+let _ = List.iter test ["miner.ghc"; "flipper.ghc"; "frickle.ghc"]
