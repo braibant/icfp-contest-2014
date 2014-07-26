@@ -4,6 +4,7 @@ module L :
       mutable x : int;
       mutable y : int;
       mutable tick_to_move : int;
+      mutable direction: int;
       mutable lives : int;
     }
   end

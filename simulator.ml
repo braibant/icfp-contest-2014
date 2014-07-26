@@ -21,6 +21,14 @@ module L = struct
   let move state lman =
     ()
 
+  let make (x,y) =
+    {
+      x;
+      y;
+      tick_to_move = 128;
+      lives = 3;
+      direction = 2;            (* everybody looks down at the beginning. *)
+    }
 end
 
 module G = struct
@@ -77,6 +85,17 @@ module G = struct
     then g.tick_to_move <- utc + Delay.ghost_fright.(g.index)
     else g.tick_to_move <- utc + Delay.ghost.(g.index)
 
+  let make (x,y) index program_index program =
+    {
+      ghc = Ghc.init index program;
+      x;
+      y;
+      tick_to_move = Delay.(index mod 4);
+      direction = 2;
+      vitality = 0;
+      index;
+      program_index
+    }
 end
 
 module Make (M : sig val board : Board.t end) =
@@ -231,5 +250,24 @@ struct
     then raise Lose;
 
     state.tick <- state.tick + 1
+
+  let repl =
+    let ghosts = Array.mapi
+                   (fun index position ->
+                    G.make position index (assert false) (assert false)
+                   )
+                   (Board.ghosts_start board) in
+    let lambda_man = L.make (Board.lambda_man_start board) in
+    let tick = 1 in
+    let pills = Board.pills board in
+    let fright_mode = None in
+    {
+      ghosts;
+      lambda_man;
+      tick;
+      pills;
+      fright_mode
+    }
+
 
 end

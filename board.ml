@@ -3,7 +3,8 @@ type t =
       board: Content.t array array;
       lambda_man_start: int * int;
       ghosts_start: (int * int) array;
-      fruit_position: int * int
+      fruit_position: int * int;
+      pills: int                (* starting number of pills *)
     }
 
 let get map  ~x ~y =
@@ -17,6 +18,7 @@ let height t = Array.length t.board.(0)
 let ghosts_start t = t.ghosts_start
 let lambda_man_start t = t.lambda_man_start
 let fruit_position t = t.fruit_position
+let pills t = t.pills
 
 let iter f map =
   for x = 0 to width map - 1 do
@@ -32,6 +34,7 @@ let of_lines lines : t =
   let lman = ref None in
   let ghosts = ref [] in
   let fruit = ref None in
+  let pills = ref 0 in
   Array.iteri
     (fun y line ->
       String.iteri (fun x c ->
@@ -41,6 +44,7 @@ let of_lines lines : t =
           | Content.LambdaManStart -> lman := Some (x,y);
           | Content.GhostStart -> ghosts := (x,y)::! ghosts;
           | Content.Fruit -> fruit := Some (x,y)
+          | Content.Pill -> incr pills
           | _ -> ()
       ) line
     ) lines;
@@ -62,11 +66,13 @@ let of_lines lines : t =
       | None -> assert false
       | Some x -> x
   in
+  let pills = !pills in
   {
     board;
     lambda_man_start;
     fruit_position;
     ghosts_start;
+    pills;
   }
 
 let of_file file =
