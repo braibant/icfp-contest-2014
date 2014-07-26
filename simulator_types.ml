@@ -38,6 +38,6 @@ type state = {
   game : game_state;
   mutable ghost_procs: Ghc.state array;
   ghost_codes : Ghc.code array;
-  mutable lambda_proc: Gcc.registers;
-  lambda_code : Gcc_instr.code;
+  mutable lambda_state : Gcc.value;
+  lambda_step : Gcc.value;
 }
