@@ -8,7 +8,7 @@ let main map ghosts lambdaman =
                    (struct
                      let board = board
                      let ghost_programs = ghosts
-                     let lambda_man = ()
+                     let lambda_program = assert false
                    end
                    )
   in

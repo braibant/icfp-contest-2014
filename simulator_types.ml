@@ -21,7 +21,6 @@ module G = struct
         mutable vitality: int;
 
         index: int;      (* ghost index, between 0 and 3 included *)
-        program_index: int;
       }
 end
 

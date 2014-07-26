@@ -85,7 +85,7 @@ module G = struct
     then g.tick_to_move <- utc + Delay.ghost_fright.(g.index)
     else g.tick_to_move <- utc + Delay.ghost.(g.index)
 
-  let make (x,y) index program_index program =
+  let make (x,y) index =
     {
       x;
       y;
@@ -93,7 +93,6 @@ module G = struct
       direction = 2;
       vitality = 0;
       index;
-      program_index
     }
 end
 
@@ -267,14 +266,8 @@ struct
       Array.map (fun index -> ghost_programs.(index)) ghost_indices in
     let ghosts =
       Array.mapi
-        (fun index position ->
-          let program_index = ghost_indices.(index) in
-          G.make
-            position
-            index
-            program_index
-            ghost_codes.(index)
-        ) ghosts_start in
+        (fun index position -> G.make position index)
+        ghosts_start in
     let lambda_man = L.make (Board.lambda_man_start board) in
     let tick = 1 in
     let pills = Board.pills board in
