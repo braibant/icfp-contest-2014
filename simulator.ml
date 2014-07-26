@@ -130,7 +130,7 @@ struct
       map = board;
     }
 
-  let gcc_map = make_gcc_map board
+  let gcc_map = Simulator_ffi.make_gcc_map board
   let make_gcc_env game =
     Simulator_ffi.make_gcc_env gcc_map game 
 
