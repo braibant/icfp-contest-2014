@@ -35,7 +35,9 @@ type code = instruction array
 
 open Format
 
-let print_instruction fmt = function
+let print_instruction r fmt instr =
+  fprintf fmt "%3i: " !r; incr r;
+  match instr with
   | LDC i -> fprintf fmt "LDC %i" i
   | LD(i,j) -> fprintf fmt "LD %i %i" i j
   | ADD -> fprintf fmt "ADD"
@@ -66,4 +68,4 @@ let print_instruction fmt = function
 
 
 let print_instructions fmt l =
-  Pp.print_list Pp.newline print_instruction fmt l
+  Pp.print_list Pp.newline (print_instruction (ref 0)) fmt l
