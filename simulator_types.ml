@@ -31,7 +31,7 @@ type game_state = {
   mutable pills: int;     (* remaining pills *)
   mutable fright_mode: int option;
     (* [Some start_time]
-       means that the fright mode is active since start_time *)
+       means that the fright mode will be active until start_time *)
 }
 
 type state = {

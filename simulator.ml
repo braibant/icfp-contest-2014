@@ -1,19 +1,9 @@
 open Simulator_types
-
-
+open Simulator_constants
 
 exception Reset_positions
 exception Win
 exception Lose
-
-
-module Delay = struct
-  let eating = 127
-  let not_eating = 137
-
-  let ghost = [| 	130; 132; 134; 136 |]
-  let ghost_fright = [| 195; 198; 201; 204 |]
-end
 
 module L = struct
   include Simulator_types.L
@@ -104,6 +94,8 @@ module Make (M : sig
 struct
   include M
 
+  let end_of_lives = 127 * Board.width board * Board.height board * 16
+
   let get: x:int -> y:int -> Content.t = fun ~x ~y ->
     Board.get board x y
   let set: x:int -> y:int -> Content.t -> unit = fun ~x ~y c ->
@@ -114,16 +106,6 @@ struct
   let _ = assert (Board.width board * Board.height board <= 100 * level)
 
   type state = Simulator_types.state
-
-  module Time = struct
-    let end_of_lives = 127 * Board.width board * Board.height board * 16
-
-    let fruit_1_appear = 127 * 200
-    let fruit_2_appear = 127 * 400
-    let fruit_1_expires = 127 * 280
-    let fruit_2_expires = 127 * 480
-    let fright_mode_duration = 127 * 20
-  end
 
   let reset_ghost ghost =
     let x,y = (Board.ghosts_start board).(ghost.G.index) in
@@ -138,15 +120,19 @@ struct
     Array.iter (fun ghost -> reset_ghost ghost) state.ghosts
 
   (* Build a GHC environment for a given state *)
-  let make_ghc_env state =
+  let make_ghc_env game =
     let open Ghc in
     {
-      lman_coordinates = [| state.lambda_man.L.x, state.lambda_man.L.y |];
+      lman_coordinates = [| game.lambda_man.L.x, game.lambda_man.L.y |];
       ghost_starting_positions = Board.ghosts_start board;
-      ghost_current_positions = Array.map G.position state.ghosts;
-      ghost_stats = Array.map G.stats state.ghosts;
+      ghost_current_positions = Array.map G.position game.ghosts;
+      ghost_stats = Array.map G.stats game.ghosts;
       map = board;
     }
+
+  let gcc_map = make_gcc_map board
+  let make_gcc_env game =
+    Simulator_ffi.make_gcc_env gcc_map game 
 
   let eating lman =
     let x = lman.L.x in
