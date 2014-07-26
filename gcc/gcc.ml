@@ -385,7 +385,9 @@ let check_stacks ({s;e;d;_} as regs) =
   ()
 
 let rec run code regs =
-  let error err = raise (Run_error (err, regs)) in
+  let error err =
+    let () = Format.eprintf "%a@." print_run_error err in
+    raise (Run_error (err, regs)) in
   check_stacks regs;
   let instr =
     let Code ptr = regs.c in

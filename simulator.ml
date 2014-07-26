@@ -342,6 +342,7 @@ struct
             tag Int 0; (* second argument: unused so far *)
             gcc_env;   (* first argument: the state of the world *)
           ];
+	  d = [ control_tag Stop () ];
         }
         |> ldf (Code 0)  (* load the main program *)
         |> ap Tail 2     (* apply the main program *)
