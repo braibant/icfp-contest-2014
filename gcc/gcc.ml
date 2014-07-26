@@ -1,6 +1,7 @@
-open Gcc_instr
+(* warnings stolen from Mezzo:
+   "@1..3@8..12@14..21@23..40-41@43" *)
 
-type dummy = Dummy
+open Gcc_instr
 
 type registers = {
   s : data_stack;
@@ -11,7 +12,8 @@ type registers = {
 and data_stack = value list
 and control_stack = control list
 and environment = frame list
-and frame =
+and frame = frame_state ref
+and frame_state =
 | Dummy of int
 | Frame of value array
 
@@ -98,17 +100,19 @@ let frame_index_check frame i =
   if Array.length frame <= i
   then error Invalid_frame_index
 
-let frame_get frame i = match frame with
-  | Dummy _ -> error Dummy_frame
-  | Frame tab ->
-    frame_index_check tab i;
-    tab.(i)
+let frame_get frame i =
+  match !frame with
+    | Dummy _ -> error Dummy_frame
+    | Frame tab ->
+      frame_index_check tab i;
+      tab.(i)
 
-let frame_set frame i v = match frame with
-  | Dummy _ -> error Dummy_frame
-  | Frame tab ->
-    frame_index_check tab i;
-    tab.(i) <- v
+let frame_set frame i v =
+  match !frame with
+    | Dummy _ -> error Dummy_frame
+    | Frame tab ->
+      frame_index_check tab i;
+      tab.(i) <- v
 
 let ldc n {s;e;c;d} =
   let s = tag Int n :: s in
@@ -185,7 +189,7 @@ let sel tail t f {s;e;c;d} =
   let c = if n = 0 then f else t in
   {s;e;c;d}
 
-let join {s;e;c;d} =
+let join {s;e;c=_;d} =
   let x, d = pop D d in
   let c = control_untag Join x in
   {s;e;c;d}
@@ -195,19 +199,21 @@ let ldf f {s;e;c;d} =
   let c = next_instr c in
   {s;e;c;d}
 
+let eat_args n s =
+  let cur_s = ref s in
+  let args = ref [] in
+  for _i = 0 to n - 1 do
+    let x, s = pop S !cur_s in
+    args := x :: !args;
+    cur_s := s;
+  done;
+  Array.of_list !args, !cur_s
+
 let ap tail n {s;e;c;d} =
   let x, s = pop S s in
   let (closure_code, closed_env) = untag Closure x in
-  let new_frame, s =
-    let cur_s = ref s in
-    let args = ref [] in
-    for i = 0 to n - 1 do
-      let x, s = pop S !cur_s in
-      args := x :: !args;
-      cur_s := s;
-    done;
-    let frame = Frame (Array.of_list !args) in
-    frame, !cur_s in
+  let args, s = eat_args n s in
+  let new_frame = ref (Frame args) in
   let d = match tail with
     | Tail -> d
     | Non_tail ->
@@ -220,7 +226,7 @@ let ap tail n {s;e;c;d} =
   let c = closure_code in
   {s;e;c;d}
 
-let rtn {s;e;c;d} =
+let rtn {s;e=_;c=_;d} =
   let x, d = pop D d in
   begin
     let Control (tag, _) = x in
@@ -233,27 +239,27 @@ let rtn {s;e;c;d} =
   {s;e;c;d}
 
 let dum n {s;e;c;d} =
-  let e = Dummy n :: e in
+  let frame = ref (Dummy n) in
+  let e = frame :: e in
   let c = next_instr c in
   {s;e;c;d}
 
 let rap tail n {s;e;c;d} =
   let x,s = pop S s in
   let (f, fp) = untag Closure x in
-  let frame, fpp = pop E fp in
-  if frame <> Dummy n then error Dummy_frame;
-  let frame, s =
-    let args = ref [] in
-    let cur_s = ref s in
-    for i = 0 to n-1 do
-      let y,s = pop S !cur_s in
-      cur_s := s;
-      args := y :: !args;
-    done;
-    Frame (Array.of_list !args), !cur_s in
+  let frame, _ = pop E fp in
+  let eframe, ep = pop E e in
+  begin
+    match !eframe with
+    | Frame _ -> error Dummy_frame
+    | Dummy k -> if k <> n then error Dummy_frame
+  end;
+  if not (eframe == frame) then error Dummy_frame;
+  let args, s = eat_args n s in
+  frame := Frame args;
   let d = match tail with
     | Tail -> d
-    | Non_tail -> control_tag Ret (next_instr c, fpp) :: d in
+    | Non_tail -> control_tag Ret (next_instr c, ep) :: d in
   let e = fp in
   let c = f in
   {s;e;c;d}
@@ -463,7 +469,7 @@ let rec untyped : registers -> Untyped.registers =
 and untyped_data_stack s = List.map untyped_value s
 and untyped_control_stack d = List.map untyped_control d
 and untyped_environment e = List.map untyped_frame e
-and untyped_frame = function
+and untyped_frame frame = match !frame with
   | Dummy n -> Array.make n Untyped.Dummy
   | Frame f -> Array.map untyped_value f
 and untyped_code_ptr (Code n) = n
