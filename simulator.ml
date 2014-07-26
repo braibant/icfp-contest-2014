@@ -286,8 +286,12 @@ struct
   let repl () =
     let state = init in
     Display.init board;
-    while true do
-      Display.show board state;
-      tick state
-    done
+    try
+      while true do
+        Display.show board state;
+        tick state
+      done
+    with
+    | Win -> Format.printf "Lambda-man has won\n"
+    | Lose -> Format.printf "Lambda-man has lost\n"
 end
