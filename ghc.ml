@@ -6,7 +6,7 @@ let nreg= 8
 exception Not_lvalue
 exception Halt
 
-include Ghc_instr
+open Ghc_instr
 
 type state =
   {
