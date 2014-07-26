@@ -1,0 +1,31 @@
+Strategie de base du lambda-man:
+  - recherche alpha-beta pour trouver le meilleur mouvement
+  - optimisation: predire le mouvement des fantomes en simulant leur code
+
+contre-strategie:
+  - chaque fantome doit utiliser ses 1024 cycles avant de decider sa direction
+
+contre-contre strategie:
+  - durant sa minute d'initialisation, lambda-man optimise le code des
+    fantomes !!!
+
+
+
+strategie de movements du fantome:
+
+- se diriger vers lambda-man
+- s'ecarter des autres fantomes autant que possible
+- tenir compte des couloirs ??
+
+-> strategie possible: trouver le plus court chemin qui mene a lambda-man
+   sans passer par un autre fantome
+
+
+
+
+premier jet: strategie stupide = calculer la direction de lambda-man et
+la suivre. inconvenient: tous les fantomes vont se mettre en cortege
+derriere lambda-man, et dans les maps tordues, ils peuvent se trouver
+coinces dans des culs-de sac.
+
+-> stupid.ghc
