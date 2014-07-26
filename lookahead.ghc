@@ -9,6 +9,43 @@ MOV [5], 1
 MOV [7], 2
 MOV [11], 3
 
+
+; next C <- X, D <- Y, E <- DIR, H <- RETURN
+next:
+        MUL E, 2
+        ADD E, 2
+        MOV A, PC
+        ADD A, E
+        MOV PC, A
+        SUB D, 1                ; code for 0
+        JMP next_end
+        ADD C, 1                ; code for 1
+        JMP next_end
+        ADD D, 1                ; code for 2
+        JMP next_end
+        SUB C, 1                ; code for 3
+next_end:
+        MOV PC, H
+
+walling:
+        MOV %walls, 0
+        MOV %nwalls, 0
+        MOV %dir, 0
+loop:
+MOV C, %dir
+CALL next (x, y, dir)
+MOV A, x
+MOV B, y
+INT 7
+JEQ else, A, 0; is wall
+LOR %walls, [%dir] ; assume that we have [1;2;4;8] in the [0;3] addresses
+INC %nwalls
+else:
+INC dir
+JLT loop, dir, 4; else, we have finished
+JMP %return
+
+
 ; In the following code, we use the following conventions.
 ; #declare allocates the code for a function.
 ; variables with a %syntax can be any register or memory-location
@@ -21,16 +58,17 @@ MUL %dir, 2
 INC %dir
 ADD PC, %dir
 SUB %y, 1   ; code for 0
-GOTO end
+JM end
 ADD %x, 1   ; code for 1
-GOTO end
+JMP end
 ADD %y, 1   ; code for 2
-GOTO end
+JMP end
 SUB %x, 1   ; code for 3
-GOTO end
+JMP end
 end:
-GOTO %return
+JMP %return
 #end
+
 
 ; compute the bitset of walls around %x, %y
 #declare walling (%walls, %nwalls, %x,%y, %return)
@@ -49,7 +87,7 @@ INC %nwalls
 else:
 INC dir
 JLT loop, dir, 4; else, we have finished
-GOTO %return
+JMP %return
 
 ; follow a line
 #declare follow
@@ -72,14 +110,14 @@ MOV %dir, [%walls]
 INC %length
 ; test if the lambda-man is here
 JEQ test_x,%x, %lambda-man-x
-GOTO step
+JMP step
 JEQ test_xy,%y, %lambda-man-y
-GOTO step
+JMP step
 test_xy:
 MOV %lambda-man, 1
 step:
 next (x,y,dir)
-GOTO start_follow
+JMP start_follow
 finished:
 MOV PC, %return
 #end
@@ -148,9 +186,9 @@ MOV %dir, [%walls]
 INC %length
 ; test if the lambda-man is here
 JEQ test_x,%x, %lambda-man-x
-GOTO follow
+JMP follow
 JEQ test_xy,%y, %lambda-man-y
-GOTO follow
+JMP follow
 test_xy:
 MOV %lambda-man, 1
 finished:

@@ -5,7 +5,7 @@ type argument =
   | Constant of int             (* 0 to 255 *)
   | Location of int             (* [0] to [255] *)
   | Label of string
-
+  | Global of string
 
 type binop =
   | ADD
