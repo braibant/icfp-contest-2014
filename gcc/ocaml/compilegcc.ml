@@ -51,7 +51,30 @@ let rec compile env lambda =
   | Lvar x ->
     let addr = MStr.find (Ident.unique_name x) env.cenv in
     [LD (addr.aframe,addr.avar)]
-  | Lconst(Const_base(Const_int(k))) -> [LDC k]
+  (** constant block *)
+  | Lconst(Const_base(Asttypes.Const_int(k))) -> [LDC k]
+  | Lconst(Const_block(tag,l)) ->
+    let l = List.map (fun x -> Lconst x) l in
+    compile env (Lprim(Pmakeblock(tag,Asttypes.Immutable),l))
+
+  | Lprim(Pmakeblock(tag,Asttypes.Immutable),l) ->
+    let rec make = function
+      | [] -> assert false
+      | [a] -> compile env a @ [LDC 0; CONS]
+      (* | [a;b] -> (compile env a) @ (compile env b) @ [CONS] *)
+      | a::l  -> (compile env a) @ (make l) @ [CONS]
+    in
+    (LDC tag) :: (make l) @ [CONS]
+
+  (** accessor *)
+  | Lprim(Pfield(i),[a]) ->
+    let rec mk_access acc i =
+      if i <= 0 then List.rev (CAR::acc)
+      else mk_access (CDR::acc) (i-1) in
+    (compile env a) @ (mk_access [(** remove tag *) CDR] i)
+
+
+  (** primitive arithmetic *)
   | Lprim(Pmulint|Psubint|Paddint|Pintcomp(Ceq|Cgt|Cge)
           as prim,[e1;e2]) ->
     (compile env e1) @ (compile env e2) @
@@ -67,6 +90,8 @@ let rec compile env lambda =
   | Lprim(Pintcomp(Cle),[a1;a2]) ->
     compile env (Lprim(Pintcomp(Cge),[a2;a1]))
   | Lprim(Psetglobal _,[e]) -> compile env e
+
+  (** controlflow *)
   | Lifthenelse (e1, e2, e3) ->
     let e2 = save_instrs env (compile env e2@[JOIN]) in
     let e3 = save_instrs env (compile env e3@[JOIN]) in
@@ -97,14 +122,6 @@ let rec compile env lambda =
     compile env e1
   | Llet(_,x,e1,e2) ->
     compile env (Lapply(Lfunction(Curried,[x],e2),[e1],Location.none))
-  | Lprim(Pmakeblock(tag,Immutable),l) ->
-    let rec make = function
-      | [] -> assert false
-      | [a] -> compile env a
-      | [a;b] -> (compile env a) @ (compile env b) @ [CONS]
-      | a::l  -> (compile env a) @ (make l) @ [CONS]
-    in
-    (LDC tag) :: (make l) @ [CONS]
   | e -> raise (Not_implemented e)
 
 (*
