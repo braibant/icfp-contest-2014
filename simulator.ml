@@ -45,8 +45,8 @@ module G = struct
       Board.get board ~x:(x-1) ~y   <> Content.Wall; (* LEFT *)
     |]
 
-  let move environment ghost =
-    let direction = match Ghc.execute environment ghost.ghc with
+  let move environment ghost ghc_state =
+    let direction = match Ghc.execute environment ghc_state with
       | None -> ghost.direction
       | Some direction -> direction in
     let walls = walls environment.Ghc.map ghost.x ghost.y in
@@ -87,7 +87,6 @@ module G = struct
 
   let make (x,y) index program_index program =
     {
-      ghc = Ghc.init index program;
       x;
       y;
       tick_to_move = Delay.(index mod 4);
@@ -101,6 +100,7 @@ end
 module Make (M : sig
                    val board : Board.t
                    val ghost_programs : Ghc.code array
+                   val lambda_program : Gcc_instr.instruction array
                  end) =
 struct
   include M
@@ -160,45 +160,46 @@ struct
     reset_ghost ghost
 
   let tick state =
-    let lman = state.lambda_man in
+    let game = state.game in
+    let lman = game.lambda_man in
     begin
       (* All Lambda-Man and ghost moves scheduled for this tick take
          place. (Note that Lambda-Man and the ghosts do not move every tick,
          only every few ticks; see the ticks section below.)  *)
-      if lman.L.tick_to_move = state.tick
+      if lman.L.tick_to_move = game.tick
       then
         begin
           L.move state lman;
           if eating lman
-          then lman.L.tick_to_move <- state.tick + Delay.eating
-          else lman.L.tick_to_move <- state.tick + Delay.not_eating
+          then lman.L.tick_to_move <- game.tick + Delay.eating
+          else lman.L.tick_to_move <- game.tick + Delay.not_eating
         end;
 
-      let env = make_ghc_env state in
-      Array.iter
-        (fun ghost ->
-         if ghost.G.tick_to_move = state.tick
+      let env = make_ghc_env game in
+      Array.iteri
+        (fun i ghost ->
+         if ghost.G.tick_to_move = game.tick
          then
            begin
-             G.set_next_move state.tick ghost;
-             G.move env ghost;
+             G.set_next_move game.tick ghost;
+             G.move env ghost state.ghost_procs.(i);
            end
-        ) state.ghosts;
+        ) game.ghosts;
     end;
 
-    begin match state.fright_mode with
+    begin match game.fright_mode with
           | None -> ()
           | Some time ->
-             if time = state.tick
-             then state.fright_mode <- None
+             if time = game.tick
+             then game.fright_mode <- None
     end;
 
     begin let x,y = Board.fruit_position  board in
-          if state.tick = Time.fruit_1_appear
-             || state.tick = Time.fruit_2_appear
+          if game.tick = Time.fruit_1_appear
+             || game.tick = Time.fruit_2_appear
           then set ~x ~y Content.Fruit
-          else if (state.tick = Time.fruit_1_expires
-                   || state.tick = Time.fruit_2_expires)
+          else if (game.tick = Time.fruit_1_expires
+                   || game.tick = Time.fruit_2_expires)
                   && get ~x ~y = Content.Fruit
           then set ~x ~y Content.Empty
           else ()
@@ -210,11 +211,11 @@ struct
       let y = lman.L.y in
       match get ~x ~y with
       | Content.Pill ->
-         state.pills <- state.pills - 1;
+         game.pills <- game.pills - 1;
          set ~x ~y Content.Empty;
       | Content.PowerPill ->
          set ~x ~y Content.Empty;
-         state.fright_mode <- Some (state.tick + Time.fright_mode_duration)
+         game.fright_mode <- Some (game.tick + Time.fright_mode_duration)
       | Content.Fruit ->
          set ~x ~y Content.Empty;
       | _ -> ()
@@ -239,46 +240,61 @@ struct
                then eat_a_ghost lman ghost
                else ()
              end
-          ) state.ghosts;
+          ) game.ghosts;
       with
-        Reset_positions -> reset_positions state
+        Reset_positions -> reset_positions game
     end;
 
     (* Next, if all the ordinary pills (ie not power pills) have been
        eaten, then Lambda-Man wins and the game is over. *)
-    if state.pills = 0
+    if game.pills = 0
     then raise Win;
 
-    if state.lambda_man.L.lives = 0
+    if game.lambda_man.L.lives = 0
     then raise Lose;
 
-    state.tick <- state.tick + 1
+    game.tick <- game.tick + 1
 
   (** Set up the initial values for the various elements of state *)
   let init : state =
     let length_ghost_programs = Array.length ghost_programs in
-    let ghosts = Array.mapi
-                   (fun index position ->
-                    let program_index =
-                      index mod length_ghost_programs
-                    in
-                    G.make
-                      position
-                      index
-                      program_index
-                      (ghost_programs.(program_index))
-                   )
-                   (Board.ghosts_start board) in
+    let ghosts_start = Board.ghosts_start board in
+    let ghost_indices =
+      Array.mapi
+        (fun index _ -> index mod length_ghost_programs)
+        ghosts_start in
+    let ghost_codes =
+      Array.map (fun index -> ghost_programs.(index)) ghost_indices in
+    let ghosts =
+      Array.mapi
+        (fun index position ->
+          let program_index = ghost_indices.(index) in
+          G.make
+            position
+            index
+            program_index
+            ghost_codes.(index)
+        ) ghosts_start in
     let lambda_man = L.make (Board.lambda_man_start board) in
     let tick = 1 in
     let pills = Board.pills board in
     let fright_mode = None in
-    {
+    let game = {
       ghosts;
       lambda_man;
       tick;
       pills;
       fright_mode;
+    } in
+    let ghost_procs = Array.mapi Ghc.init ghost_codes in
+    let lambda_proc = Gcc.init_regs in
+    let lambda_code = lambda_program in
+    {
+      game;
+      ghost_procs;
+      ghost_codes;
+      lambda_proc;
+      lambda_code;
     }
 
   (** [repl] stands for Read-Eval-Print-Loop and is the main loop for
@@ -288,7 +304,7 @@ struct
     Display.init board;
     try
       while true do
-        Display.show board state;
+        Display.show board state.game;
         tick state
       done
     with

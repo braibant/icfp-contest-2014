@@ -1,7 +1,6 @@
 module L = struct
   type t =
       {
-        (* gcc: Gcc.state*)
         mutable x : int;
         mutable y : int;
         mutable tick_to_move: int;
@@ -15,7 +14,6 @@ module G = struct
 
   type t =
       {
-        ghc: Ghc.state;
         mutable x : int;
         mutable y: int;
         mutable tick_to_move: int;
@@ -27,13 +25,20 @@ module G = struct
       }
 end
 
+type game_state = {
+  ghosts: G.t array;
+  lambda_man : L.t;
+  mutable tick: int;      (* UTC *)
+  mutable pills: int;     (* remaining pills *)
+  mutable fright_mode: int option;
+    (* [Some start_time]
+       means that the fright mode is active since start_time *)
+}
 
-type state =
-    {
-      ghosts: G.t array;
-      lambda_man : L.t;
-      mutable tick: int;      (* UTC *)
-      mutable pills: int;     (* remaining pills *)
-      mutable fright_mode: int option;      (* [Some start_time]
-        means that the fright mode is active since start_time *)
-    }
+type state = {
+  game : game_state;
+  mutable ghost_procs: Ghc.state array;
+  ghost_codes : Ghc.code array;
+  mutable lambda_proc: Gcc.registers;
+  lambda_code : Gcc_instr.code;
+}

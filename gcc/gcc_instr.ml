@@ -31,6 +31,8 @@ type instruction =
 | DBUG
 | BRK
 
+type code = instruction array
+
 open Format
 
 let print_instruction fmt = function

@@ -38,7 +38,6 @@ type ghost_status = {
   dir : direction;
 }
 
-
 type t = {
   map : map;
   lambda : lambda_status;
