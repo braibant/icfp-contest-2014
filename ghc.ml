@@ -20,7 +20,7 @@ type state =
   }
 
 let pp_registers fmt registers =
-  for i = 0 to Array.length registers do
+  for i = 0 to Array.length registers - 1 do
     Format.fprintf fmt " %c:%.3i;"(char_of_int (int_of_char 'A' + i)) registers.(i)
   done
 
@@ -33,7 +33,7 @@ let pp_direction fmt =
   | Some _ -> Format.fprintf fmt "<"
 
 let pp_short fmt state =
-  Format.fprintf fmt "regs [%a] pc %.3i {%a} \n" pp_registers state.registers state.pc pp_direction state.direction
+  Format.fprintf fmt "regs [%a] pc %.3i {%a}" pp_registers state.registers state.pc pp_direction state.direction
 
 type code = instr array
 
@@ -58,7 +58,7 @@ hold the value [value]. *)
 let set state dest value =
   match dest with
   | Register reg -> state.registers.(reg) <- value
-  | PC -> raise Not_lvalue
+  | PC -> state.pc <- value
   | Indirect reg -> state.data.(state.registers.(reg)) <- value
   | Constant _ -> raise Not_lvalue
   | Location cst -> state.data.(cst) <- value
@@ -164,19 +164,15 @@ let execute ?(debug=false) interrupts state =
         if debug
         then
           begin
-            Format.printf "cycle %i\n" !i;
-            Format.printf "old_state:%a\n" pp_short state;
-            Format.printf "instr: %a" Ghc_misc.pp_instr state.code.(!i);
+            Format.printf "state:%a\n" pp_short state;
+            Format.printf "instr: %a\n" Ghc_misc.pp_instr state.code.(state.pc);
           end;
         execution_cycle interrupts state;
-        if debug
-        then
-          Format.printf "new_state:%a\n" pp_short state;
 
 
         if state.pc = pc then state.pc <- state.pc + 1
       done
-    with Halt | Not_lvalue -> ();
+    with Halt -> ()
   end;
 
   match state.direction with
