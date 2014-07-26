@@ -3,6 +3,18 @@
 
 open Gcc_instr
 
+module Counted : sig
+  type 'a t = private (int * 'a)
+  val fresh : 'a -> 'a t
+end = struct
+  type 'a t = int * 'a
+  let count = ref 0
+  let fresh v =
+    let i = !count in
+    incr count;
+    (i, v)
+end
+
 type registers = {
   s : data_stack;
   e : environment;
@@ -12,10 +24,13 @@ type registers = {
 and data_stack = value list
 and control_stack = control list
 and environment = frame list
-and frame = frame_state ref
-and frame_state =
+and frame =
+| Unique of value array
+| Shared of shared_frame
+and shared_frame = shared_frame_state ref Counted.t
+and shared_frame_state =
 | Dummy of int
-| Frame of value array
+| Defined of value array
 
 and 'a stack_tag =
 | S : value stack_tag
@@ -96,23 +111,38 @@ let nth : type a . a stack_tag -> a list -> int -> a =
    try List.nth stack n
    with _ -> error (Empty_stack tag)
 
+let get_shared_frame counted_shared_frame =
+  let (_, frame) = (counted_shared_frame : shared_frame :> _ * _) in
+  match !frame with
+    | Dummy _ -> error Dummy_frame
+    | Defined frame -> frame
+
+let set_shared_frame counted_shared_frame args =
+  let (_, frame) = (counted_shared_frame : shared_frame :> _ * _) in
+  match !frame with
+    | Defined _ -> error Dummy_frame
+    | Dummy n ->
+      if Array.length args <> n
+      then error Dummy_frame
+      else frame := Defined args
+
 let frame_index_check frame i =
   if Array.length frame <= i
   then error Invalid_frame_index
 
 let frame_get frame i =
-  match !frame with
-    | Dummy _ -> error Dummy_frame
-    | Frame tab ->
-      frame_index_check tab i;
-      tab.(i)
+  let tab = match frame with
+    | Unique tab -> tab
+    | Shared frame -> get_shared_frame frame in
+  frame_index_check tab i;
+  tab.(i)
 
 let frame_set frame i v =
-  match !frame with
-    | Dummy _ -> error Dummy_frame
-    | Frame tab ->
-      frame_index_check tab i;
-      tab.(i) <- v
+  let tab = match frame with
+    | Unique tab -> tab
+    | Shared frame -> get_shared_frame frame in
+  frame_index_check tab i;
+  tab.(i) <- v
 
 let ldc n {s;e;c;d} =
   let s = tag Int n :: s in
@@ -212,8 +242,7 @@ let eat_args n s =
 let ap tail n {s;e;c;d} =
   let x, s = pop S s in
   let (closure_code, closed_env) = untag Closure x in
-  let args, s = eat_args n s in
-  let new_frame = ref (Frame args) in
+  let frame, s = eat_args n s in
   let d = match tail with
     | Tail -> d
     | Non_tail ->
@@ -222,7 +251,7 @@ let ap tail n {s;e;c;d} =
          the code pointer and the environment,
          instead of storing them as two separate stack slots *)
       control_tag Ret (next_instr c, e) :: d in
-  let e = new_frame :: closed_env in
+  let e = Unique frame :: closed_env in
   let c = closure_code in
   {s;e;c;d}
 
@@ -239,24 +268,23 @@ let rtn {s;e=_;c=_;d} =
   {s;e;c;d}
 
 let dum n {s;e;c;d} =
-  let frame = ref (Dummy n) in
-  let e = frame :: e in
+  let frame = Counted.fresh (ref (Dummy n)) in
+  let e = Shared frame :: e in
   let c = next_instr c in
   {s;e;c;d}
 
 let rap tail n {s;e;c;d} =
   let x,s = pop S s in
   let (f, fp) = untag Closure x in
-  let frame, _ = pop E fp in
+  let xframe, _ = pop E fp in
   let eframe, ep = pop E e in
-  begin
-    match !eframe with
-    | Frame _ -> error Dummy_frame
-    | Dummy k -> if k <> n then error Dummy_frame
-  end;
-  if not (eframe == frame) then error Dummy_frame;
-  let args, s = eat_args n s in
-  frame := Frame args;
+  let shared_frame = match xframe with
+    | Unique _ -> error Dummy_frame
+    | Shared frame -> frame
+  in
+  if not (xframe == eframe) then error Dummy_frame;
+  let frame, s = eat_args n s in
+  set_shared_frame shared_frame frame;
   let d = match tail with
     | Tail -> d
     | Non_tail -> control_tag Ret (next_instr c, ep) :: d in
@@ -445,13 +473,17 @@ module Untyped = struct
   and data_stack = value list
   and control_stack = control list
   and environment = frame list
-  and frame = value array
+  and frame =
+  | Unique of value array
+  | Shared_seen of int
+  | Shared_new of int * frame_state
+  and frame_state =
+  | Dummy of int | Defined of value array
 
   and value =
   | Int of int
   | Pair of value * value
   | Closure of int * environment
-  | Dummy
 
   and control =
   | Join of code_ptr
@@ -459,31 +491,43 @@ module Untyped = struct
   | Stop
 end
 
-let rec untyped : registers -> Untyped.registers =
+let untyped : registers -> Untyped.registers =
+  let seen = Hashtbl.create 10 in
+  let rec untyped_data_stack s = List.map untyped_value s
+  and untyped_control_stack d = List.map untyped_control d
+  and untyped_environment e = List.map untyped_frame e
+  and untyped_frame frame = match frame with
+    | Unique value -> Untyped.Unique (Array.map untyped_value value)
+    | Shared shared_frame ->
+      let (count, frame_state) = (shared_frame : shared_frame :> _ * _) in
+      if Hashtbl.mem seen count then Untyped.Shared_seen count
+      else begin
+        Hashtbl.add seen count ();
+        let state = match !frame_state with
+          | Dummy n -> Untyped.Dummy n
+          | Defined v -> Untyped.Defined (Array.map untyped_value v)
+        in
+        Untyped.Shared_new (count, state)
+      end
+  and untyped_code_ptr (Code n) = n
+  and untyped_value : value -> Untyped.value = function
+    | Value (Int, n) ->
+      Untyped.Int n
+    | Value (Pair, (a, b)) ->
+      Untyped.Pair (untyped_value a, untyped_value b)
+    | Value (Closure, (c, env)) ->
+      Untyped.Closure (untyped_code_ptr c, untyped_environment env)
+  and untyped_control = function
+    | Control (Join, c) ->
+      Untyped.Join (untyped_code_ptr c)
+    | Control (Ret, (c, e)) ->
+      Untyped.Ret (untyped_code_ptr c, untyped_environment e)
+    | Control (Stop, ()) ->
+      Untyped.Stop
+  in
   fun {s;e;c;d} ->
     let s = untyped_data_stack s in
     let e = untyped_environment e in
     let c = untyped_code_ptr c in
     let d = untyped_control_stack d in
     Untyped.({s;e;c;d})
-and untyped_data_stack s = List.map untyped_value s
-and untyped_control_stack d = List.map untyped_control d
-and untyped_environment e = List.map untyped_frame e
-and untyped_frame frame = match !frame with
-  | Dummy n -> Array.make n Untyped.Dummy
-  | Frame f -> Array.map untyped_value f
-and untyped_code_ptr (Code n) = n
-and untyped_value : value -> Untyped.value = function
-  | Value (Int, n) ->
-    Untyped.Int n
-  | Value (Pair, (a, b)) ->
-    Untyped.Pair (untyped_value a, untyped_value b)
-  | Value (Closure, (c, env)) ->
-    Untyped.Closure (untyped_code_ptr c, untyped_environment env)
-and untyped_control = function
-  | Control (Join, c) ->
-    Untyped.Join (untyped_code_ptr c)
-  | Control (Ret, (c, e)) ->
-    Untyped.Ret (untyped_code_ptr c, untyped_environment e)
-  | Control (Stop, ()) ->
-    Untyped.Stop
