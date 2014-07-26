@@ -85,6 +85,7 @@ let () =
       ["--print",Arg.Set print,"print the asm";
        "--dlambda",Arg.Set Clflags.dump_lambda,"print the parsetree";
        "--no-exec",Arg.Clear exec,"execute the asm";
+       "--rectypes", Arg.Set Clflags.recursive_types, "rectypes!"
       ]
       (fun f -> files := f :: !files)
       "Usage: miniml [-n] [file] ..." ;
