@@ -3,7 +3,7 @@ open Cmdliner
 
 let main map ghosts lambdaman =
   let board = Board.of_file map in
-  let ghosts = Array.of_list ghosts |> Array.map (assert false) in
+  let ghosts = Array.of_list ghosts |> Array.map Ghc_misc.of_file in
   let module S = Simulator.Make
                    (struct
                      let board = board
