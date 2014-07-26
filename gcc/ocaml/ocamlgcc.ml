@@ -62,11 +62,14 @@ let implementation ppf sourcefile outputprefix =
   Env.set_unit_name modulename;
   let inputfile = Pparse.preprocess sourcefile in
   let env = initial_env() in
+  let env2 = initial_env() in
   let instrs =
     Pparse.file ppf inputfile Parse.implementation ast_impl_magic_number
     ++ print_if ppf Clflags.dump_parsetree Printast.implementation
     ++ print_if ppf Clflags.dump_source Pprintast.structure
     ++ Typemod.type_implementation sourcefile outputprefix modulename env
+    ++ Lower_product.untype_implementation
+    ++ Typemod.type_implementation sourcefile outputprefix modulename env2
     ++ Translmod.transl_implementation modulename
     ++ print_if ppf Clflags.dump_rawlambda Printlambda.lambda
     ++ Simplif.simplify_lambda
