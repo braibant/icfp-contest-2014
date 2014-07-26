@@ -1,0 +1,20 @@
+; 0 contains the ghost id
+
+whoami:
+        INT 3
+        MOV [0], A
+
+whereami:
+        INT 5
+        MOV [1], A
+        MOV [2], B
+
+whereish:
+        INT 1
+        MOV [3], A ;lman x
+        MOV [4], B ;lman y
+
+around:
+        INT 5;
+        ADD A, -1;
+        INT 7;
