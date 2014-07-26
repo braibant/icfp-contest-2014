@@ -1,5 +1,6 @@
 all:
-	ocamlbuild simulator.byte -I Ghc
+	ocamlbuild -use-ocamlfind simulator.byte
+	ocamlbuild -use-ocamlfind main.byte
 
 display_test: tiles.ml
 	ocamlbuild -tag debug display_test.byte

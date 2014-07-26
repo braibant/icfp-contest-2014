@@ -1,1 +1,2 @@
 true: use_graphics
+true: package(cmdliner)
