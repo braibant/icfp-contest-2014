@@ -89,7 +89,16 @@ module G = struct
   (* 0 is up; 1 is right; 2 is down; 3 is left. *)
 
   let move environment ghost ghc_state =
-    match Ghc.execute environment ghc_state with
+    let direction =
+      try
+        Ghc.execute environment ghc_state
+      with
+      | e ->
+         Format.printf "Uncaught ecxeption %s in GHC"
+                       (Printexc.to_string e);
+         None
+    in
+    match  direction with
       | None -> ghost.direction
       | Some direction -> direction
 
