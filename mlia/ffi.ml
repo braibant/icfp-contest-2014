@@ -20,6 +20,7 @@ external case_flist: 'b flist -> (int -> 'a) -> ('b -> 'b flist -> 'a) -> 'a
 
 let nil = mk_nil 0
 
+
 (*
 external case_const
   : ('b, 'c) int_or_pair -> 'a -> ('b -> 'c -> 'a) -> 'a
@@ -44,3 +45,11 @@ let rec fold_left_stop f acc li =
       match f acc x with
         | Stop v -> v
         | Continue acc -> fold_left_stop f acc xs)
+
+let rec flist_of_list = function
+  | [] -> nil
+  | a::l -> cons a (flist_of_list l)
+
+let f i x = let r = i*x in if r > 10 then Stop(r) else Continue r
+
+let main_gcc = fold_left_stop f 1 (flist_of_list [1;2;3;4;5])

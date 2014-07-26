@@ -127,7 +127,8 @@ let rec compile env lambda =
   | Lifthenelse (e1, e2, e3) ->
     let e2 = save_instrs env (compile env e2@[JOIN]) in
     let e3 = save_instrs env (compile env e3@[JOIN]) in
-    (compile env e1) @ [SEL(e2,e3)]
+    (** if can be used on any type, so we call LDF(3) *)
+    (compile env e1) @ [LDF(Code 3);AP(1)] @ [SEL(e2,e3)]
   | Lletrec (fs, e) ->
     let env = shift_frame env in
     let env,n = prepare_env env 0 (List.map fst fs) in
@@ -154,7 +155,19 @@ let rec compile env lambda =
     compile env e1
   | Llet(_,x,e1,e2) ->
     compile env (Lapply(Lfunction(Curried,[x],e2),[e1],Location.none))
+  (** GCC primitive *)
+  | Lprim(Pccall({prim_name="gcc_left"}),[i]) ->
+    compile env i
+  | Lprim(Pccall({prim_name="gcc_right"}),[a;b]) ->
+    (compile env a)@(compile env b)@[CONS]
+  | Lprim(Pccall({prim_name="gcc_case"}),[l;left;right]) ->
+    let run_left = save_instrs env  [LD(0,0);LD(0,1);TAP(1)] in
+    let run_right = save_instrs env [LD(0,0);CAR;LD(0,0);CDR;LD(0,2);TAP(2)] in
+    let call = save_instrs env [LD(0,0);ATOM;TSEL(run_left,run_right)] in
+    (compile env l) @ (compile env left) @ (compile env right) @
+    [LDF(call);AP(3)]
   | e -> raise (Not_implemented e)
+
 
 (*
 let builtin_match_list_alpha =
@@ -172,9 +185,20 @@ let builtin_match_list_alpha =
 *)
 
 let compile expr =
-  let env =  {cenv = MStr.empty; slots = {sinstr=[];snext=3}} in
+  let env =  {cenv = MStr.empty; slots = {sinstr=[];snext=10}} in
   let main = save_instrs env ((compile env expr)@[RTN]) in
-  (LDF main)::(AP 0)::STOP::(get_slots env)
+  (* 0 *) (LDF main)::
+          (* 1 *)(AP 0)::
+          (* 2 *)STOP::
+          (** function is not null *)
+          (* 3 *) LD(0,0)::
+          (* 4 *) ATOM::
+          (* 5 *) TSEL(Code 6,Code 8)::
+          (* 6 *) LD(0,0)::
+          (* 7 *) RTN::
+          (* 8 *) LDC(1)::
+          (* 9 *) RTN ::
+          (* 10 *) (get_slots env)
 
 
 let compile_implementation _modulename (e:Lambda.lambda) =
