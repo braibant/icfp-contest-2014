@@ -50,3 +50,7 @@ affinement de stupid:
 pour scatter/chase: horloge globale sur 2 octets
 
 3, 4, 6 = smart.g
+
+
+7. detecter les impasses et eviter de s'y engager si lambda-man n'y
+   est pas
