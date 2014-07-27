@@ -42,12 +42,21 @@ let rec lower_typ_tuple loc = function
   | x::xs -> Ptyp_tuple [x; {ptyp_desc = lower_typ_tuple loc xs; ptyp_loc = loc}]
 
 
-(* TODO *)
+(* TODO: lowering functions that remain to be done *)
+
 let lower_field _loc (exp, lid, _label) = Pexp_field (exp, lid)
-let lower_setfield _loc (exp1, lid, _label, exp2) = Pexp_setfield (exp1, lid, exp2)
-let lower_type_variant _loc vli = Ptype_variant vli
+
+let lower_setfield _loc (exp1, lid, _label, exp2) =
+  failwith "lower_product.ml: mutable fields are unsupported"
+
+let lower_type_variant _loc vli =
+  (* TODO enforce at-most-one-non-constant restriction *)
+  Ptype_variant vli
+
 let lower_type_record _loc vli = Ptype_record vli
+
 let lower_pat_record _loc (list, closed) = Ppat_record (list, closed)
+
 let lower_exp_record _loc (list, expo) = Pexp_record (list, expo)
 
 (* everything below is reused from tools/untypeast.ml *)

@@ -22,6 +22,17 @@ type location = int * int
 
 type fruit_status = int
 
+type lambda_status =
+  ( lambda_vitality
+  * location
+  * direction
+  * lives
+  * score )
+and lambda_vitality = int
+and lives = int
+and score = int
+
+(*
 type lambda_status = {
   vitality : int;
   loc : location;
@@ -29,19 +40,33 @@ type lambda_status = {
   lives : int;
   score : int;
 }
+*)
 
+(*
 type ghost_status = {
   vitality : ghost_vitality;
   loc : location;
   dir : direction;
 }
+*)
 
+type ghost_status =
+  ( ghost_vitality
+  * location
+  * direction )
+(*
 type t = {
   map : map;
   lambda : lambda_status;
   ghosts : ghost_status list;
   fruits : fruit_status;
 }
+*)
+type t =
+  ( map
+  * lambda_status
+  * ghost_status list
+  * fruit_status )
 and map = square list list
 
 
