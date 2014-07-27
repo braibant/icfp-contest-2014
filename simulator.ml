@@ -91,7 +91,10 @@ module G = struct
 
   (* 0 is up; 1 is right; 2 is down; 3 is left. *)
 
-  let move environment ghost ghc_state =
+  let move
+      (environment: Ghc.env)
+      (ghost: Simulator_types.G.t)
+      (ghc_state: Ghc.state) =
     let direction =
       try
         Ghc.execute environment ghc_state
@@ -124,8 +127,8 @@ module G = struct
 
   let set_next_move utc g =
     if is_frightened g
-    then g.tick_to_move <- utc + Delay.ghost_fright.(g.index)
-    else g.tick_to_move <- utc + Delay.ghost.(g.index)
+    then g.tick_to_move <- utc + Delay.ghost_fright.(g.index mod 4)
+    else g.tick_to_move <- utc + Delay.ghost.(g.index mod 4)
 
   let make (x,y) index =
     {
@@ -221,6 +224,9 @@ struct
         end;
 
       let ghc_env = make_ghc_env game in
+      Printf.eprintf "ghost_procs %i game.ghosts %i"
+        (Array.length state.ghost_procs)
+        (Array.length game.ghosts);
       Array.iteri
         (fun i ghost ->
          if ghost.G.tick_to_move = game.tick
@@ -376,9 +382,13 @@ struct
     else print_endline "init done";
     try
       while true do
+        Printf.printf "tick %d\n%!" game.tick;
         if use_graphics
-        then Display.show board state.game
-        else (Printf.printf "tick %d\n%!" game.tick);
+        then
+          begin
+            Display.show board state.game;
+            ignore (Graphics.wait_next_event [Graphics.Key_pressed]);
+          end;
         tick state
       done
     with
