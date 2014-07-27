@@ -156,6 +156,14 @@ let rec compile env lambda =
     compile env (Lprim(Pintcomp(Cge),[a2;a1]))
   | Lprim(Psetglobal _,[e]) -> compile env e
 
+  | Lprim(Pisout,[h;arg]) -> (* isout is lt ? *)
+    let isout = save_instrs env
+        [LD(0,0);LD(0,1);CGT;LDC 0;LD(0,0);CGT;ADD;RTN] in
+    (compile env arg)@(compile env h)@[LDF isout; AP 2]
+
+  | Lprim(Poffsetint(i),[arg]) ->
+    (compile env arg)@[LDC i;ADD]
+
   (** primitive boolean *)
   | Lprim(Psequand,[a1;a2]) ->
     let a2 = save_instrs env (compile env a2@[JOIN]) in
