@@ -28,3 +28,7 @@ stdlib/simu.cmi: stdlib/simu.mli
 	@for SRC in $(DIRECTORIES); do echo S $$SRC >> .merlin.tmp; done
 	@for SRC in $(DIRECTORIES); do echo B _build/$$SRC >> .merlin.tmp; done
 	@mv .merlin.tmp .merlin
+
+clean:
+	$(OCAMLBUILD) -clean
+	rm -f stdlib/simu.cmi

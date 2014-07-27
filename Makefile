@@ -1,13 +1,18 @@
-all:
-	ocamlbuild -use-ocamlfind simulator.byte
-	ocamlbuild -use-ocamlfind main.byte
-	ocamlbuild -use-ocamlfind ghc_trace.byte
 
-display_test: tiles.ml
-	ocamlbuild -tag debug display_test.byte
+OCAMLBUILD=ocamlbuild -no-hygiene
 
-ghc_test:
-	ocamlbuild -tag debug ghc_test.byte
+.PHONY: force
+
+all: force tiles.ml
+	$(OCAMLBUILD) -use-ocamlfind simulator.byte
+	$(OCAMLBUILD) -use-ocamlfind main.byte
+	$(OCAMLBUILD) -use-ocamlfind ghc_trace.byte
+
+display_test: force tiles.ml
+	$(OCAMLBUILD) -tag debug display_test.byte
+
+ghc_test: force
+	$(OCAMLBUILD) -tag debug ghc_test.byte
 
 tiles.ml: tiles.xpm make-tiles.sh
 	./make-tiles.sh
