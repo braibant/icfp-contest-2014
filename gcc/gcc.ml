@@ -340,7 +340,7 @@ let init_regs =  {
     s = [];
     e = [];
     c = Code 0;
-    d = [];
+    d = [ control_tag Stop ()];
 }
 
 type run_error =
@@ -415,9 +415,7 @@ let local =
   (* 0 *) LDC 21;
   (* 1 *) LDF body; (* load body *)
   (* 2 *) AP 1;     (* call body with 1 variable in a new frame *)
-  (* 3 *) STOP;
-  (* note: online example uses RTN instead of STOP here,
-     which gives a control stack error *)
+  (* 3 *) RTN;
   (* body = 4 *)
   (* 4 *) LD (0, 0); (* var x *)
   (* 5 *) LD (0, 0); (* var x *)
