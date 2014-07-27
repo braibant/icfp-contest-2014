@@ -43,8 +43,12 @@ let rec lower_typ_tuple loc = function
 
 
 (* TODO *)
-let lower_field exp lid _label = Pexp_field (exp, lid)
-let lower_setfield exp1 lid _label exp2 = Pexp_setfield (exp1, lid, exp2)
+let lower_field _loc (exp, lid, _label) = Pexp_field (exp, lid)
+let lower_setfield _loc (exp1, lid, _label, exp2) = Pexp_setfield (exp1, lid, exp2)
+let lower_type_variant _loc vli = Ptype_variant vli
+let lower_type_record _loc vli = Ptype_record vli
+let lower_pat_record _loc (list, closed) = Ppat_record (list, closed)
+let lower_exp_record _loc (list, expo) = Pexp_record (list, expo)
 
 (* everything below is reused from tools/untypeast.ml *)
 
@@ -116,6 +120,7 @@ and untype_value_description v =
     pval_loc = v.val_loc }
 
 and untype_type_declaration decl =
+  let loc = decl.typ_loc in
   {
     ptype_params = decl.typ_params;
     ptype_cstrs = List.map (fun (ct1, ct2, loc) ->
@@ -125,11 +130,11 @@ and untype_type_declaration decl =
     ptype_kind = (match decl.typ_kind with
         Ttype_abstract -> Ptype_abstract
       | Ttype_variant list ->
-          Ptype_variant (List.map (fun (_s, name, cts, loc) ->
+          lower_type_variant loc (List.map (fun (_s, name, cts, loc) ->
                 (name, List.map untype_core_type cts, None, loc)
             ) list)
       | Ttype_record list ->
-          Ptype_record (List.map (fun (_s, name, mut, ct, loc) ->
+          lower_type_record loc (List.map (fun (_s, name, mut, ct, loc) ->
                 (name, mut, untype_core_type ct, loc)
             ) list)
     );
@@ -184,7 +189,7 @@ and untype_pattern pat =
             None -> None
           | Some pat -> Some (untype_pattern pat))
     | Tpat_record (list, closed) ->
-        Ppat_record (List.map (fun (lid, _, pat) ->
+        lower_pat_record loc (List.map (fun (lid, _, pat) ->
               lid, untype_pattern pat) list, closed)
     | Tpat_array list -> Ppat_array (List.map untype_pattern list)
     | Tpat_or (p1, p2, _) -> Ppat_or (untype_pattern p1, untype_pattern p2)
@@ -257,17 +262,17 @@ and untype_expression exp =
             None -> None
           | Some exp -> Some (untype_expression exp))
     | Texp_record (list, expo) ->
-        Pexp_record (List.map (fun (lid, _, exp) ->
+        lower_exp_record loc (List.map (fun (lid, _, exp) ->
               lid, untype_expression exp
           ) list,
           match expo with
             None -> None
           | Some exp -> Some (untype_expression exp))
     | Texp_field (exp, lid, label) ->
-        lower_field (untype_expression exp) lid label
+        lower_field loc (untype_expression exp, lid, label)
     | Texp_setfield (exp1, lid, label, exp2) ->
-        lower_setfield
-          (untype_expression exp1) lid label (untype_expression exp2)
+        lower_setfield loc
+          (untype_expression exp1, lid, label, untype_expression exp2)
     | Texp_array list ->
         Pexp_array (List.map untype_expression list)
     | Texp_ifthenelse (exp1, exp2, expo) ->
