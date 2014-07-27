@@ -7,8 +7,10 @@
 open Gcc;;
 open Gcc_instr;;
 
+(* dummy map state *)
 let gcc_env = tag Int 0;;
 
+(* initialization input *)
 let input = {
   s = [];
   e = [Unique [|
@@ -19,6 +21,34 @@ let input = {
   d = [ control_tag Stop () ];
 }
 
-let program = Gcc_lexer.program "../dummy.gcc" |> Array.of_list;;
+let lambda_program = Gcc_lexer.program "../dummy.gcc" |> Array.of_list
 
-run program input |> untyped;;
+let _ = run lambda_program input |> untyped
+
+let lambda_state, lambda_step =
+  match run lambda_program input with
+    | {
+      s = [Value (Pair, (state, step))];
+      e = [Unique [|_; _|]];
+      c = _;
+      d = [];
+    } -> state, step
+    | _ -> failwith "gcc initialization failure"
+
+(* stepping input *)
+let input =
+  {
+    s = [
+      lambda_step;   (* function to call: the step function *)
+      gcc_env;       (* second argument: the state of the world *)
+      lambda_state;  (* first argument: the AI state *)
+    ];
+    e = [];
+    c = Gcc_instr.Code 0;
+    d = [control_tag Stop ()];
+  }
+  |> ap Tail 2 (* call the step function *)
+
+let _ = input |> untyped
+
+let _ = run lambda_program input |> untyped

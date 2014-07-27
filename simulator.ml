@@ -34,19 +34,22 @@ module L = struct
   let get_move gcc_env lambda_program lambda_state lambda_step =
     let open Gcc in
     let input =
-      { init_regs with
+      {
         s = [
+          lambda_step;   (* function to call: the step function *)
           gcc_env;       (* second argument: the state of the world *)
           lambda_state;  (* first argument: the AI state *)
-          lambda_step;   (* function to call: the step function *)
         ];
+        e = [];
+        c = Gcc_instr.Code 0;
+        d = [control_tag Stop ()];
       }
       |> ap Tail 2 (* call the step function *)
     in
     match run lambda_program input with
       | {
           s = [Value (Pair, (state, move))];
-          e = [];
+          e = _;
           c = _;
           d = [];
         } ->
@@ -368,10 +371,14 @@ struct
   our simulator.  *)
   let repl () =
     let state = init in
-    if use_graphics then Display.init board;
+    if use_graphics
+    then Display.init board
+    else print_endline "init done";
     try
       while true do
-        if use_graphics then Display.show board state.game;
+        if use_graphics
+        then Display.show board state.game
+        else (Printf.printf "tick %d\n%!" game.tick);
         tick state
       done
     with
