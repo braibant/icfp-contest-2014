@@ -1,3 +1,58 @@
+(* Implementation of dictionnaries using red black trees *)
+
+type key = int * int
+
+type 'a rbt =
+  | Empty
+  | Red of 'a rbt * key * 'a * 'a rbt
+  | Black of 'a rbt * key * 'a * 'a rbt
+
+let empty = Empty
+
+let rec mem cmp x = function
+  | Empty -> false
+  | Red (l,v,r) | Black (l,v,r) ->
+    begin
+      match compare x v with
+        | -1 -> mem cmp x l
+        | 0 -> true
+        | _ -> mem cmp x r
+    end
+
+let blacken = function
+  | Red (l,v,r) -> Black (l,v,r)
+  | (Empty | Black _) as n -> n
+
+let balance = function
+  | Black ((Red (Red (a, x, b), y, c)
+               | Red (a, x, Red (b, y, c))), z, d)
+  | Black (a, x, (Red (Red (b, y, c), z, d)
+                     | Red (b, y, Red (c, z, d))))
+    -> Red (Black (a, x, b), y, Black (c, z, d))
+  | n -> n
+
+type color = R | B
+
+let color = function
+  | Red _ -> R
+  | Empty | Black _ -> B
+
+let mk col l v r = match col with
+  | B -> Black (l, v, r)
+  | R -> Red (l, v, r)
+
+let insert cmp x n =
+  let rec insert x t = match t with
+    | Empty -> Red (Empty, x, Empty)
+    | Red (l,v,r) | Black (l,v,r) ->
+      let l, r =
+        if cmp x v <= 0
+        then insert x l, r
+        else l, insert x r in
+      balance (mk (color t) l v r)
+  in blacken (insert x n)
+
+
 (** Avoid polymorphic equality *)
 let eq_int m n = (m : int) = n
 
@@ -152,27 +207,69 @@ let good_square square =
 
 let mem_pos pos li = mem eq_pos pos li
 
+let min_opt (a: int option) b =
+  match a with
+    | None -> b
+    | Some x ->
+      begin match b with
+        | None -> Some x
+        | Some y -> if x < y then Some x else Some y
+      end
+
+(* precompute the graph *)
+
 let dfs map ghosts pos =
   let rec loop pos length =
-    let content = get map pos in
-    if good_square content
-    then Some length
-    else if content = Wall
+    if 6 < length
     then None
     else
-      fold_left (fun res dir ->
-        if res = None
-        then loop (next_pos dir pos)  (1+length)
-        else res
-      ) None directions
+      begin
+        let content = get map pos in
+        if good_square content
+        then Some length
+        else if content = Wall
+        then None
+        else
+          fold_left
+            (fun res dir ->
+              min_opt res (loop (next_pos dir pos)  (1+length))
+            ) None directions
+      end
   in
-  fold_left (fun res dir ->
-    if res = None
-    then match loop (next_pos dir pos) 0 with
-      | None -> None
-      | Some length -> Some (dir, length)
-    else res
-  ) None directions
+  fold_left
+    (fun res dir ->
+      match res with
+        | None ->
+          begin match loop (next_pos dir pos) 0 with
+            | None -> None
+            | Some length -> Some (dir, length)
+          end
+        | Some (d, l) ->
+          begin match (loop (next_pos dir pos) 0) with
+            | None -> res
+            | Some length ->
+              if (l:int) < length then res else Some (dir, length)
+          end
+    )
+    None
+    directions
+
+(* let pill map pos = *)
+(*   fold_left *)
+(*     (fun res dir -> *)
+(*       match res with *)
+(*         | None *)
+(*     ) *)
+(*     None directions *)
+
+let direction_of_int i =
+  if eq_int i 0 then Up
+  else if eq_int i 1 then Right
+  else if eq_int i 2 then Down
+  else Left
+
+let modulo a b =
+  a - (a / b) * b
 
 let step state world =
   let (map, lambda, ghosts, _fruit) = world in
@@ -180,11 +277,13 @@ let step state world =
   let ghost_pos =
     list_map (fun (_vita, pos, dir) -> next_pos dir pos) ghosts in
   let dir =
+    (* let _ = (dfs map ghost_pos pos) in *)
+    (* direction_of_int (modulo state 4)a *)
     match dfs map ghost_pos pos with
-      | None -> lambda_dir
-      | Some dirlength ->
-        fst dirlength
+      | None -> direction_of_int (modulo state 4)
+      | Some (dir,_) -> dir
   in
-  (state, dir)
+  (1 + state, dir)
 
-let main_ia = fun state _world -> (42, step)
+let state = 42
+let main_gcc = (state,step)
