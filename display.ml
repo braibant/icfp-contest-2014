@@ -27,6 +27,7 @@ let init board =
   let w = s * !width in
   let h = s * !height in
   Graphics.open_graph (Printf.sprintf " %dx%d" w h);
+  Graphics.auto_synchronize false;
   tiles :=
     Array.init 10 (fun i -> Graphics.make_image (Array.sub Tiles.raw (i*s) s));
   draw_board board;
@@ -49,4 +50,5 @@ let show board state =
   begin let open L in
     draw_tile m.x m.y 5;
   end;
+  Graphics.synchronize ();
 ;;

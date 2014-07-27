@@ -414,20 +414,32 @@ struct
   let repl () =
     let state = init in
     if use_graphics
-    then Display.init board
+    then begin
+      Display.init board;
+      Printf.printf "Command:\n \
+        p/r : step-by-step activate/deactivate\n \
+        +/- : faster/slower\n \
+        q: quit\n \
+        _ : one step\n \
+        "
+    end
     else print_endline "init done";
     try
       let st_by_st = ref (true) in
       let continue = ref (true) in
+      let sleep    = ref 0.005  in
       let react = function
 	| 's' | '\n' -> ()
 	| 'r' -> st_by_st := false
 	| 'p' | ' ' -> st_by_st := true
 	| 'q'  (*| s when int_of_char s = 27*) ->
 	   continue := false
+        | '+' -> sleep := !sleep /. 2.
+        | '-' -> sleep := !sleep *. 2.
 	| _ -> () in
       while !continue do
-        Printf.printf "tick %d\n%!" game.tick;
+        if !st_by_st || game.tick mod 100 = 0 then
+          Printf.printf "tick %d\n%!" game.tick;
         if use_graphics
         then
           begin
@@ -437,10 +449,10 @@ struct
 	    else if !st_by_st then
 	      react (Graphics.wait_next_event [Graphics.Key_pressed]).Graphics.key;
 	    if not !st_by_st
-	    then let () =
-		   try ignore(Unix.select [] [] [] 0.005)
+	    then (*let () =
+		   try ignore(Unix.select [] [] [] !sleep)
 		   with Unix.Unix_error (Unix.EINTR, _, _) -> ()
-		 in ();
+		 in*) ();
           end;
         tick state
       done
