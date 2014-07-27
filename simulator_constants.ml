@@ -2,7 +2,7 @@ module Delay = struct
   let eating = 127
   let not_eating = 137
 
-  let ghost = [| 	130; 132; 134; 136 |]
+  let ghost = [| 130; 132; 134; 136 |]
   let ghost_fright = [| 195; 198; 201; 204 |]
 end
 

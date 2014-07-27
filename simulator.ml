@@ -13,12 +13,14 @@ let move board (x, y) old_direction new_direction =
       Board.get board ~x ~y:(y + 1) <> Content.Wall; (* DOWN *)
       Board.get board ~x:(x-1) ~y   <> Content.Wall; (* LEFT *)
     |] in
+  let forbidden = ((old_direction + 2) mod 4) in
+  free.(forbidden) <- false;
   let direction =
     if free.(new_direction)
     then new_direction
     else if free.(old_direction)
     then old_direction
-    else List.find (fun d -> free.(d)) [0;1;2;3]
+    else List.find (fun d -> free.(d) ) [0;1;2;3]
   in
   assert free.(direction);
   direction, match direction with
@@ -134,7 +136,7 @@ module G = struct
     {
       x;
       y;
-      tick_to_move = Delay.(index mod 4);
+      tick_to_move = Delay.ghost.(index mod 4);
       direction = 2;
       vitality = 0;
       index;
@@ -210,6 +212,7 @@ struct
       if lman.L.tick_to_move = game.tick
       then
         begin
+          Printf.printf "lanbda-man to move\n";
           let gcc_env = make_gcc_env game in
           let new_direction =
             L.move gcc_env lambda_program state in
@@ -224,23 +227,20 @@ struct
         end;
 
       let ghc_env = make_ghc_env game in
-      Printf.eprintf "ghost_procs %i game.ghosts %i"
-        (Array.length state.ghost_procs)
-        (Array.length game.ghosts);
       Array.iteri
         (fun i ghost ->
-         if ghost.G.tick_to_move = game.tick
-         then
-           begin
-             let new_direction =
-               G.move ghc_env ghost state.ghost_procs.(i) in
-             let direction, new_position =
-               let pos = G.position ghost in
-               move board pos ghost.G.direction new_direction in
-             G.set_direction ghost direction;
-             G.set_position ghost new_position;
-             G.set_next_move game.tick ghost;
-           end
+          if ghost.G.tick_to_move = game.tick
+          then
+            begin
+              let new_direction =
+                G.move ghc_env ghost state.ghost_procs.(i) in
+              let direction, new_position =
+                let pos = G.position ghost in
+                move board pos ghost.G.direction new_direction in
+              G.set_direction ghost direction;
+              G.set_position ghost new_position;
+              G.set_next_move game.tick ghost;
+            end
         ) game.ghosts;
     end;
 
