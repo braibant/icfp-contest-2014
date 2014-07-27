@@ -62,14 +62,12 @@ let implementation ppf sourcefile outputprefix =
   Env.set_unit_name modulename;
   let inputfile = Pparse.preprocess sourcefile in
   let env = initial_env() in
-  let env2 = initial_env() in
   let instrs =
     Pparse.file ppf inputfile Parse.implementation ast_impl_magic_number
     ++ print_if ppf Clflags.dump_parsetree Printast.implementation
+    ++ Lower_product.lower#structure
     ++ print_if ppf Clflags.dump_source Pprintast.structure
     ++ Typemod.type_implementation sourcefile outputprefix modulename env
-    ++ Lower_product.untype_implementation
-    ++ Typemod.type_implementation sourcefile outputprefix modulename env2
     ++ Translmod.transl_implementation modulename
     ++ print_if ppf Clflags.dump_rawlambda Printlambda.lambda
     ++ Simplif.simplify_lambda
@@ -89,6 +87,7 @@ let () =
     Arg.parse
       ["--print",Arg.Set print,"print the asm";
        "--dlambda",Arg.Set Clflags.dump_lambda,"print the parsetree";
+       "--dlower",Arg.Set Clflags.dump_source,"print the post-lowering source";
        "--no-exec",Arg.Clear exec,"execute the asm";
        "--rectypes", Arg.Set Clflags.recursive_types, "rectypes!"
       ]
