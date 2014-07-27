@@ -28,4 +28,25 @@ la suivre. inconvenient: tous les fantomes vont se mettre en cortege
 derriere lambda-man, et dans les maps tordues, ils peuvent se trouver
 coinces dans des culs-de sac.
 
--> stupid.ghc
+-> stupid.g
+
+
+affinement de stupid:
+
+1. choisir une direction disponible, parmi les deux qui encadrent le
+   quadrant ou se trouve lambda-man
+   -> idiot.g
+2. de temps en temps, randomiser (soit entre les deux directions, soit
+   parmi toutes les disponibles) une bonne source d'alea est la
+   position de lambda-man
+3. ghost alternant entre deux phases: scatter et chase
+   en scatter, les ghosts se dirigent vers les coins du plateau, en
+   chase vers lambda-man
+   rem: il faut que les ghosts soient synchrone
+4. idee: en mode panic, scatter plutot que anti-chase
+5. idee: converger sur le fruit quand il est visible
+6. pour sortir du puits initial, faire tourner les scatter
+
+pour scatter/chase: horloge globale sur 2 octets
+
+3, 4, 6 = smart.g

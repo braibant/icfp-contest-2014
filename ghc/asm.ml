@@ -22,7 +22,10 @@ let number_labels m ast =
   m
 ;;
 
-let get_lbl m s = Smap.find s m;;
+let get_lbl m s =
+  if Smap.mem s m then Smap.find s m
+  else error ("label not defined: " ^ s)
+;;
 
 open Instr;;
 
@@ -34,7 +37,7 @@ let rec arg g m a =
   | Constant i -> sprintf "%d" i
   | Location i -> sprintf "[%d]" i
   | Label l -> sprintf "%d" (get_lbl m l)
-  | Global l ->  arg g m (Smap.find l g)
+  | Global l ->  arg g m (get_lbl g l)
 ;;
 
 let binop op =

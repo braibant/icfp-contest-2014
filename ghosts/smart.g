@@ -5,35 +5,90 @@
 ; start by moving up for 6 steps, then right for 6 steps, etc,
 ; then always move into the available direction closest to lambda-man's position
 
+%lastx :: [1]
+%lasty :: [2]
+%clkl :: [3]
+%clkh :: [4]
+%curmode :: [5]        ; 0 = chase, 1 = scatter
+%scatterx :: [6]
+%scattery :: [7]
 
-; detect sudden jumps in position and reset the start counter
+; clock
+  add %clkl, 8               ; clock high period 256/8 = 32
+  jgt clock_done, %clkl, 0
+  inc %clkh
+clock_done:
+
+; detect sudden jumps in position and reset the clock
   int 3
   int 5
-  sub a, [1]
-  sub b, [2]
+  sub a, %lastx
+  sub b, %lasty
   add a, b
   add a, 1
-  jlt nojump, a, 3
-  mov [0], 0
-
-nojump:
+  jlt detect_done, a, 3
+  mov %clkl, 0
+  mov %clkh, 0
+detect_done:
   int 3
   int 5
-  mov [1], a
-  mov [2], b
-  jgt follow, [0], 24
-  ; the start counter is low: try to get out of the start box
-  inc [0]
-  mov b, [0]
-  div b, 6
-  int 3
-  add a, b
-  and a, 3
-  int 0
-  hlt
+  mov %lastx, a
+  mov %lasty, b
 
-follow:
+; decide between chase and scatter
+
+; if panic mode, scatter
+
+  int 3
+  int 6
+  jeq scatter, a, 1    ; panic mode -> scatter
+  jeq chase, a, 2      ; invisible mode -> chase
+                       ; normal mode -> scatter/chase according to clock
+
+; if clock-high = 0 mod 4, scatter
+  mov c, %clkh
+  and c, 3
+  jgt chase, c, 0
+
+scatter:
+  jeq scatter_continue, %curmode, 1
+  mov %curmode, 1
+  mov c, %clkh
+  div c, 8
+  int 3
+  add a, c
+  mov %scatterx, a
+  div a, 2
+  mov %scattery, a
+  and %scatterx, 1
+  and %scattery, 1
+  mul %scatterx, 30
+  mul %scattery, 30
+  sub %scatterx, 15
+  sub %scattery, 15
+  int 3
+  int 1
+  add %scatterx, a
+  add %scattery, b
+  jlt clipxdone, %scatterx, 128
+  mov %scatterx, 0
+clipxdone:
+  jlt clipydone, %scattery, 128
+  mov %scattery, 0
+clipydone:
+  mov a, %scatterx
+  mov b, %scattery
+  int 8
+scatter_continue:
+  mov a, %scatterx
+  mov b, %scattery
+  jmp go_to
+
+chase:
+  mov %curmode, 0
   int 1     ; get lman's coordinates in A and B
+
+go_to:
   mov c, a  ; c = lman.x
   mov d, b  ; d = lman.y
   int 3     ; get this ghost's index
@@ -78,17 +133,6 @@ l4:
   div c, 2        ; main direction of lambda-man
   div d, 2        ; secondary direction
 
-
-
-; if panic mode, reverse direction
-
-  int 3
-  int 6
-  jeq test, a, 0
-
-  add c, 2
-  add d, 2
-
 test:
   int 3
   int 5
@@ -108,7 +152,6 @@ ret1:
   jmp go
 
 secondary:
-  int 8
   mov c, d        ; go in secondary direction
 
 go:
