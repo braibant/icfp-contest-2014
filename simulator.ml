@@ -5,30 +5,23 @@ exception Reset_positions
 exception Win
 exception Lose
 
-let move board (x, y) old_direction new_direction =
-  let free =
-    [|
-      Board.get board ~x ~y:(y - 1) <> Content.Wall; (* UP *)
-      Board.get board ~x:(x+1) ~y   <> Content.Wall; (* RIGHT *)
-      Board.get board ~x ~y:(y + 1) <> Content.Wall; (* DOWN *)
-      Board.get board ~x:(x-1) ~y   <> Content.Wall; (* LEFT *)
-    |] in
-  let forbidden = ((old_direction + 2) mod 4) in
-  free.(forbidden) <- false;
-  let direction =
-    if free.(new_direction)
-    then new_direction
-    else if free.(old_direction)
-    then old_direction
-    else List.find (fun d -> free.(d) ) [0;1;2;3]
-  in
-  assert free.(direction);
-  direction, match direction with
-    | 0 -> (x, y-1)
-    | 1 -> (x+1, y)
-    | 2 -> (x, y+1)
-    | 3 -> (x-1, y)
-    | _ -> assert false
+let free_adj board (x,y) =
+  [|
+    Board.get board ~x ~y:(y - 1) <> Content.Wall; (* UP *)
+    Board.get board ~x:(x+1) ~y   <> Content.Wall; (* RIGHT *)
+    Board.get board ~x ~y:(y + 1) <> Content.Wall; (* DOWN *)
+    Board.get board ~x:(x-1) ~y   <> Content.Wall; (* LEFT *)
+   |]
+
+let move_if_free free_adj dir (x,y) =
+  if free_adj.(dir)
+  then match dir with
+       | 0 -> (x, y-1)
+       | 1 -> (x+1, y)
+       | 2 -> (x, y+1)
+       | 3 -> (x-1, y)
+       | _ -> assert false
+  else (x,y)
 
 module L = struct
   include Simulator_types.L
@@ -58,12 +51,13 @@ module L = struct
         state, untag Int move
       | _ -> failwith "gcc step failure"
 
-  let move gcc_env lambda_code state =
+  let move gcc_env lambda_code state board pos =
     let lambda_state, direction =
       get_move gcc_env
         lambda_code state.lambda_state state.lambda_step in
     state.lambda_state <- lambda_state;
-    direction
+    let free = free_adj board pos in
+    direction, move_if_free free direction pos
 
   let position lman = (lman.x, lman.y)
   let set_position lman (x, y) =
@@ -93,7 +87,7 @@ module G = struct
 
   (* 0 is up; 1 is right; 2 is down; 3 is left. *)
 
-  let move
+  let dreamed_move
       (environment: Ghc.env)
       (ghost: Simulator_types.G.t)
       (ghc_state: Ghc.state) =
@@ -106,7 +100,7 @@ module G = struct
                        (Printexc.to_string e);
          None
     in
-    match  direction with
+    match direction with
       | None -> ghost.direction
       | Some direction -> direction
 
@@ -141,6 +135,38 @@ module G = struct
       vitality = 0;
       index;
     }
+
+  let reset ghost (x,y) =
+    ghost.x <- x;
+    ghost.y <- y;
+    ghost.tick_to_move <- Delay.ghost.(ghost.index mod 4);
+    ghost.direction <- 2;
+    ghost.vitality <- 0
+
+  let move_restrictor board (x, y) old_direction new_direction =
+    let free = free_adj board (x,y) in
+    let forbidden = ((old_direction + 2) mod 4) in
+    let direction =
+      if List.for_all
+	   (fun d -> d = forbidden || not free.(d)) [0;1;2;3]
+      then forbidden
+      else
+	let () = free.(forbidden) <- false in
+	if free.(new_direction)
+	then new_direction
+	else if free.(old_direction)
+	then old_direction
+	else List.find (fun d -> free.(d) ) [0;1;2;3]
+    in
+    assert free.(direction);
+    (direction, move_if_free free direction (x,y))
+
+  let move ghc_env ghost board state =
+    let new_direction =
+      dreamed_move ghc_env ghost state in
+    let pos = position ghost in
+    move_restrictor board pos ghost.G.direction new_direction
+
 end
 
 module Make (M : sig
@@ -160,22 +186,21 @@ struct
     Board.set board x y c
 
   let level = ((Board.width board * Board.height board) / 100) + 1
-  let _ = assert (100 * (level - 1) < Board.width board * Board.height board)
+  let _ = assert (100 * (level - 1) <= Board.width board * Board.height board)
   let _ = assert (Board.width board * Board.height board <= 100 * level)
 
   type state = Simulator_types.state
-
-  let reset_ghost ghost =
-    let x,y = (Board.ghosts_start board).(ghost.G.index) in
-    ghost.G.x <- x;
-    ghost.G.y <- y
 
   let reset_positions state =
     let x,y = Board.lambda_man_start board in
     state.lambda_man.L.x <- x;
     state.lambda_man.L.y <- y;
+    state.lambda_man.L.direction <- 2;
     state.lambda_man.L.lives <- state.lambda_man.L.lives - 1;
-    Array.iter (fun ghost -> reset_ghost ghost) state.ghosts
+    Array.iter
+      (fun ghost ->
+       G.reset ghost ((Board.ghosts_start board).(ghost.G.index)))
+      state.ghosts
 
   (* Build a GHC environment for a given state *)
   let make_ghc_env game =
@@ -200,7 +225,7 @@ struct
     | _ -> false
 
   let eat_a_ghost lman ghost =
-    reset_ghost ghost
+    G.reset ghost ((Board.ghosts_start board).(ghost.G.index))
 
   let tick state =
     let game = state.game in
@@ -212,13 +237,11 @@ struct
       if lman.L.tick_to_move = game.tick
       then
         begin
-          Printf.printf "lanbda-man to move\n";
+          Printf.printf "lambda-man to move\n";
           let gcc_env = make_gcc_env game in
-          let new_direction =
-            L.move gcc_env lambda_program state in
           let direction, new_position =
             let pos = L.position lman in
-            move board pos lman.L.direction new_direction in
+            L.move gcc_env lambda_program state board pos in
           L.set_direction lman direction;
           L.set_position lman new_position;
           if eating lman
@@ -232,12 +255,9 @@ struct
           if ghost.G.tick_to_move = game.tick
           then
             begin
-              let new_direction =
-                G.move ghc_env ghost state.ghost_procs.(i) in
               let direction, new_position =
-                let pos = G.position ghost in
-                move board pos ghost.G.direction new_direction in
-              G.set_direction ghost direction;
+		G.move ghc_env ghost board state.ghost_procs.(i) in
+	      G.set_direction ghost direction;
               G.set_position ghost new_position;
               G.set_next_move game.tick ghost;
             end
