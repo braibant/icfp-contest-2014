@@ -11,10 +11,16 @@ OCAMLBUILD=@ocamlbuild \
 
 .PHONY: tests tests.native tests_debug force
 
-all: ocamlgcc.native .merlin
+all: ocamlgcc.native .merlin stdlib/simu.cmi
 
-ocamlgcc.native: force
+ocamlgcc.native: force configure.ml
 	$(OCAMLBUILD) ocaml/ocamlgcc.native
+
+configure.ml: Makefile
+	echo "let stdlib=\"$(PWD)/stdlib\"" > configure.ml
+
+stdlib/simu.cmi: stdlib/simu.mli
+	ocamlc -o stdlib/simu.cmi stdlib/simu.mli
 
 .merlin: Makefile
 	@rm -f .merlin.tmp

@@ -59,6 +59,10 @@ let print_error fmt = function
 exception Not_implemented of lambda
 exception Error of error * lambda
 
+(** stdlib *)
+let simu_world = Ident.create " Simu.world "
+let simu_ghost = Ident.create " Simu.ghost "
+
 (** [compile e] compiles program [e] into a list of machine instructions. *)
 let rec compile env lambda =
   (* Format.eprintf "@[LOG:%a@]@." Printlambda.lambda lambda; *)
@@ -88,6 +92,14 @@ let rec compile env lambda =
   | Lprim(Pisint,[a]) -> (compile env a) @ [ATOM]
 
   (** accessor *)
+  | Lprim(Pfield(0),[Lprim(Pgetglobal(modid),[])])
+    when modid.Ident.name = "Simu" ->
+    [load_var env simu_world]
+
+  | Lprim(Pfield(1),[Lprim(Pgetglobal(modid),[])])
+    when modid.Ident.name = "Simu" ->
+    [load_var env simu_ghost]
+
   | Lprim(Pfield(0),[a]) -> (compile env a) @ [CAR]
   | Lprim(Pfield(1),[a]) -> (compile env a) @ [CDR]
   | Lprim(Pfield(_),[_]) ->
@@ -221,10 +233,12 @@ let rec compile env lambda =
 
 let compile expr =
   let env =  {cenv = MStr.empty; slots = {sinstr=[];snext=10}} in
+  let env,_ = prepare_env env 0 [simu_world;simu_ghost] in
+  let env = shift_frame env in
   let main = save_instrs env ((compile env expr)@[RTN]) in
   LDF(main):: (* 0 *)
   AP(0):: (* 1 *)
-  STOP:: (* 2 *)
+  RTN:: (* 2 *)
   (** function is not null *)
   LD(0,0):: (* 3 *)
   ATOM:: (* 4 *)

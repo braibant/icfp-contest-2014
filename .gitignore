@@ -2,3 +2,4 @@ _build/
 /gcc/miniml.native
 /gcc/.merlin
 tiles.ml
+/gcc/configure.ml

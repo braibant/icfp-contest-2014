@@ -132,4 +132,4 @@ let step state world =
   in
   (state, dir)
 
-let main_ia = fun state _world -> (42, step)
+let main_gcc = (42, step)

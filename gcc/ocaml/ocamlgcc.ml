@@ -81,6 +81,8 @@ let implementation ppf sourcefile outputprefix =
 
 let () =
   Clflags.native_code := false;
+  (* Clflags.no_std_include := true; *)
+  Clflags.include_dirs := [Configure.stdlib];
   let print = ref false in
   let exec  = ref true in
   let files = ref [] in
