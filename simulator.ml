@@ -429,15 +429,15 @@ struct
     try
       let st_by_st = ref (true) in
       let continue = ref (true) in
-      let sleep    = ref 0.005  in
+      let sleep    = ref 8  in
       let react = function
 	| 's' | '\n' -> ()
 	| 'r' -> st_by_st := false
 	| 'p' | ' ' -> st_by_st := true
 	| 'q'  (*| s when int_of_char s = 27*) ->
 	   continue := false
-        | '+' -> sleep := !sleep /. 2.
-        | '-' -> sleep := !sleep *. 2.
+        | '+' -> sleep := if !sleep > 1000 then !sleep else !sleep * 2
+        | '-' -> sleep := if !sleep = 1 then 1 else !sleep / 2
 	| _ -> () in
       while !continue do
         if !st_by_st || game.tick mod 100 = 0 then
@@ -446,15 +446,16 @@ struct
         then
           begin
             Display.show board state.game;
-            if Graphics.key_pressed ()
+            if game.tick mod !sleep = 0 && Graphics.key_pressed ()
 	    then react (Graphics.read_key ())
 	    else if !st_by_st then
 	      react (Graphics.wait_next_event [Graphics.Key_pressed]).Graphics.key;
 	    if not !st_by_st
 	    then let () =
-		     try ignore(Unix.select [] [] [] !sleep)
-                     with Unix.Unix_error (Unix.EINTR, _, _) -> ()
-		 in ();
+                     if game.tick mod !sleep = 0 then
+		       try ignore(Unix.select [] [] [] 0.005)
+                       with Unix.Unix_error (Unix.EINTR, _, _) -> ()
+       in ();
           end;
         tick state
       done
