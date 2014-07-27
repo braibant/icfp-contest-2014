@@ -68,7 +68,10 @@ let print_instruction r fmt instr =
 
 let print_instruction r fmt instr =
   print_instruction r fmt instr;
-  fprintf fmt "; %3i " !r; incr r
+  (* for some reason the online interpreter
+     doesn't tolerate comments after RTN *)
+  if instr <> RTN then
+    fprintf fmt "; %3i " !r; incr r
 
 
 let print_instructions fmt l =

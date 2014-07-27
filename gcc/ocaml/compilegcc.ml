@@ -125,11 +125,11 @@ let rec compile env lambda =
     end
 
   (** primitive arithmetic *)
-  | Lprim(Pmulint|Psubint|Paddint|Pintcomp(Ceq|Cgt|Cge)
+  | Lprim(Pmulint|Psubint|Paddint|Pdivint|Pintcomp(Ceq|Cgt|Cge)
           as prim,[e1;e2]) ->
     (compile env e1) @ (compile env e2) @
     [match prim with
-     | Pmulint -> MUL | Psubint -> SUB | Paddint -> ADD
+     | Pmulint -> MUL | Psubint -> SUB | Paddint -> ADD | Pdivint -> DIV
      | Pintcomp(Ceq) -> CEQ | Pintcomp(Cgt) -> CGTE | Pintcomp(Cge) -> CGT
      | _ -> assert false]
   | Lprim(Pintcomp(Cneq),args) ->

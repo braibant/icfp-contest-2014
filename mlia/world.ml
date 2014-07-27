@@ -68,5 +68,3 @@ type t =
   * ghost_status list
   * fruit_status )
 and map = square list list
-
-
