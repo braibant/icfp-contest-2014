@@ -1,6 +1,7 @@
 type code_ptr = Code of int
 
 type instruction =
+  | COMMENT of string
 | LDC of int
 | LD of int * int
 | ADD
@@ -35,8 +36,11 @@ type code = instruction array
 
 open Format
 
-let print_instruction r fmt instr =
+let print_comment = ref false
+
+let print_instruction fmt instr =
   match instr with
+  | COMMENT s -> if !print_comment then fprintf fmt ";Lambda: %s" s
   | LDC i -> fprintf fmt "LDC %i" i
   | LD(i,j) -> fprintf fmt "LD %i %i" i j
   | ADD -> fprintf fmt "ADD"
@@ -67,11 +71,14 @@ let print_instruction r fmt instr =
 
 
 let print_instruction r fmt instr =
-  print_instruction r fmt instr;
+  print_instruction fmt instr;
   (* for some reason the online interpreter
      doesn't tolerate comments after RTN *)
-  if instr <> RTN then
-    fprintf fmt "; %3i " !r; incr r
+  begin match instr with
+    |RTN -> incr r
+    | COMMENT _ -> ()
+    | _ -> fprintf fmt "   ; %3i " !r; incr r
+  end
 
 
 let print_instructions fmt l =

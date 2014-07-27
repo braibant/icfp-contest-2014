@@ -307,6 +307,7 @@ let nb_step = ref 0
 let step inst =
   incr nb_step;
  match inst with
+ | COMMENT _ -> fun x -> x
 | LDC n -> ldc n
 | LD (n, i) -> ld n i
 | ADD -> add

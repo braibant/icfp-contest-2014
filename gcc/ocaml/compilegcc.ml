@@ -20,9 +20,13 @@ type env = {
   scatch: address MInt.t
 }
 
-let save_instrs env instrs =
+let save_instrs ?lambda env instrs =
   let len = List.length instrs in
   let slot = env.slots.snext in
+  let instrs = match lambda with
+    | Some lambda when !Gcc_instr.print_comment ->
+      COMMENT(Pp.string_of_wnl Printlambda.lambda lambda)::instrs
+    | _ -> instrs in
   env.slots.sinstr <- instrs::env.slots.sinstr;
   env.slots.snext <- env.slots.snext + len;
   Code slot
@@ -116,7 +120,7 @@ let rec compile env lambda =
       | [] -> assert false
       | [_,e] -> compile env e@[last]
       | (i,e)::l ->
-        let e = save_instrs env (compile env e@[last]) in
+        let e = save_instrs ~lambda:e env (compile env e@[last]) in
         let l = save_instrs env (switch_int env ~first:false last v l) in
         v::LDC(i)::CEQ::(if first then [SEL(e,l)] else [TSEL(e,l)]) in
     let mk_const ~first = switch_int env ~first JOIN v switch.sw_consts in
@@ -143,10 +147,11 @@ let rec compile env lambda =
   | Lstaticcatch(lbody,(i,vars), lhandler) ->
     let env' = shift_frame env in
     let env',_ = prepare_env env' 0 vars in
-    let lhandler = save_instrs env' (compile env' lhandler@[RTN]) in
+    let lhandler = save_instrs ~lambda:lhandler env'
+        (compile env' lhandler@[RTN]) in
     let env = shift_frame env in
     let env = {env with scatch = MInt.add i {aframe=0;avar=0} env.scatch} in
-    let lbody = save_instrs env (compile env lbody@[RTN]) in
+    let lbody = save_instrs ~lambda:lbody env (compile env lbody@[RTN]) in
     (LDF lhandler)::(LDF lbody)::[AP(1)]
 
   | Lstaticraise(i,args) ->
@@ -156,6 +161,9 @@ let rec compile env lambda =
      AP (List.length args)]
 
   (** primitive arithmetic *)
+  | Lprim(Pintcomp(Ceq),[a;Lconst(Const_pointer(0))]) ->
+    (compile env a)@[ATOM]
+
   | Lprim(Pmulint|Psubint|Paddint|Pdivint|Pintcomp(Ceq|Cgt|Cge)
           as prim,[e1;e2]) ->
     (compile env e1) @ (compile env e2) @
@@ -259,7 +267,6 @@ let rec compile env lambda =
   (** exception *)
   | Lprim(Praise,_) -> [BRK]
   | e -> raise (Not_implemented e)
-
 
 let compile expr =
   let env =  {cenv = MStr.empty; slots = {sinstr=[];snext=10};

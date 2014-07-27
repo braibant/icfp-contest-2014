@@ -89,7 +89,8 @@ let () =
        "--dlambda",Arg.Set Clflags.dump_lambda,"print the parsetree";
        "--dlower",Arg.Set Clflags.dump_source,"print the post-lowering source";
        "--no-exec",Arg.Clear exec,"execute the asm";
-       "--rectypes", Arg.Set Clflags.recursive_types, "rectypes!"
+       "--rectypes", Arg.Set Clflags.recursive_types, "rectypes!";
+       "--comment",Arg.Set Gcc_instr.print_comment, "print additional comment"
       ]
       (fun f -> files := f :: !files)
       "Usage: miniml [-n] [file] ..." ;
