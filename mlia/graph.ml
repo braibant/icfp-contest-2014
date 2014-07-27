@@ -14,6 +14,12 @@ let rec nth n = function
     if n = 0 then Some x
     else nth (n-1) xs
 
+let rec nth' n = function
+  | [] -> assert false
+  | x::xs ->
+    if n = 0 then x
+    else nth' (n-1) xs
+
 
 
 
@@ -72,6 +78,9 @@ let get map (i,j) =
     | None -> None
     | Some line -> nth i line
 
+let get' map (i,j) =
+  nth' i (nth' j map)
+
 let next_pos direction (x, y) = match direction with
   | Up    -> (x,y-1)
   | Right -> (x+1, y)
@@ -90,28 +99,25 @@ let make_graph map =
       let _, l =
         fold_left (fun (j,graph) cell ->
           let pos = i,j in
-          match get map pos with
-            | None -> assert false
-            | Some cell ->
-              if cell <> Wall
-              then
-                begin
-                  let edges =
-                    fold_left
-                      (fun edges dir ->
-                        match get map (next_pos dir pos) with
-                          | None -> edges
-                          | Some c ->
-                            if Wall = c
-                            then edges
-                            else dir::edges
-                      )
-                      [] directions
-                  in
-                  1+j, edges::graph
-                end
-              else
-                1 + j, []::graph
+          if get' map pos <> Wall
+          then
+            begin
+              let edges =
+                fold_left
+                  (fun edges dir ->
+                    match get map (next_pos dir pos) with
+                      | None -> edges
+                      | Some c ->
+                        if Wall = c
+                        then edges
+                        else dir::edges
+                  )
+                  [] directions
+              in
+              1+j, edges::graph
+            end
+          else
+            1 + j, []::graph
         )
           (0, [])
           line
@@ -128,6 +134,9 @@ let get_graph graph (i,j) =
     | None -> None
     | Some l ->  nth i  l
 
+let get_graph' graph (i,j) =
+  nth' i (nth' j graph)
+
 let good_square square =
   square = Pill
   || square = Power_pill
@@ -140,7 +149,7 @@ let mem_pos (pos: location) (li: location list) = mem eq_pos pos li
 
 let free map pos =
   match get map pos with
-    | None -> true
+    | None -> false
     | Some c -> c <> Wall
 
 (* let is_some = function *)
@@ -158,19 +167,10 @@ let bfs map graph ghosts pos =
       | (pos, start_dir) :: cur_gen ->
         if mem_pos pos old then loop old cur_gen next_gen
         else
-          if
-            begin match get map pos with
-                None -> false
-              | Some c -> good_square c
-            end
-          then
-            Some start_dir
+          if good_square (get' map pos)
+          then Some start_dir
           else
-            let directions =
-              match get_graph graph pos with
-                | None -> []
-                | Some d -> d
-            in
+            let directions = get_graph' graph pos in
             let next_gen =
               fold_left
                 (fun next_gen dir ->
