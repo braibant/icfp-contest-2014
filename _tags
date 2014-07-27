@@ -1,6 +1,8 @@
 true: use_graphics
+true: use_unix
 true: package(cmdliner)
 "gcc": include
 "ghc": include
 true: use_menhir
 true: debug
+true: annot

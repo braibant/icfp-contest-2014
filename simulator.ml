@@ -136,12 +136,12 @@ module G = struct
       index;
     }
 
-  let reset ghost (x,y) =
+  let reset ghost fright_mode (x,y) =
     ghost.x <- x;
     ghost.y <- y;
     ghost.tick_to_move <- Delay.ghost.(ghost.index mod 4);
     ghost.direction <- 2;
-    ghost.vitality <- 0
+    ghost.vitality <- match fright_mode with | None -> 0 | Some _ -> 2
 
   let move_restrictor board (x, y) old_direction new_direction =
     let free = free_adj board (x,y) in
@@ -192,6 +192,7 @@ struct
   type state = Simulator_types.state
 
   let reset_positions state =
+    state.fright_mode <- None;
     let x,y = Board.lambda_man_start board in
     state.lambda_man.L.x <- x;
     state.lambda_man.L.y <- y;
@@ -199,7 +200,7 @@ struct
     state.lambda_man.L.lives <- state.lambda_man.L.lives - 1;
     Array.iter
       (fun ghost ->
-       G.reset ghost ((Board.ghosts_start board).(ghost.G.index)))
+       G.reset ghost None ((Board.ghosts_start board).(ghost.G.index)))
       state.ghosts
 
   (* Build a GHC environment for a given state *)
@@ -225,7 +226,23 @@ struct
     | _ -> false
 
   let eat_a_ghost lman ghost =
-    G.reset ghost ((Board.ghosts_start board).(ghost.G.index))
+    G.reset ghost (Some 0 (*dummy*))
+	    ((Board.ghosts_start board).(ghost.G.index))
+
+  let start_fright_mode game =
+    Array.iter (fun ghost ->
+		ghost.G.direction <- ghost.G.direction + 2 mod 4;
+		ghost.G.vitality <- 1;
+	       ) game.ghosts;
+    game.fright_mode <-
+      Some (game.tick + Time.fright_mode_duration)
+
+  let stop_fright_mode game =
+    Array.iter (fun ghost ->
+		ghost.G.vitality <- 0;
+	       ) game.ghosts;
+
+    game.fright_mode <- None
 
   let tick state =
     let game = state.game in
@@ -268,7 +285,7 @@ struct
           | None -> ()
           | Some time ->
              if time = game.tick
-             then game.fright_mode <- None
+             then stop_fright_mode game
     end;
 
     begin let x,y = Board.fruit_position  board in
@@ -282,7 +299,6 @@ struct
           else ()
     end;
 
-
     begin
       let x = lman.L.x in
       let y = lman.L.y in
@@ -292,7 +308,7 @@ struct
          set ~x ~y Content.Empty;
       | Content.PowerPill ->
          set ~x ~y Content.Empty;
-         game.fright_mode <- Some (game.tick + Time.fright_mode_duration)
+         start_fright_mode game
       | Content.Fruit ->
          set ~x ~y Content.Empty;
       | _ -> ()
@@ -373,7 +389,7 @@ struct
           tag Int 0; (* second argument: unused so far *)
         |] ];
         c = Code 0;
-        d = [ control_tag Stop () ];
+        d = [](*[ control_tag Stop () ]*);
       }
       in
       match run lambda_program input with
@@ -401,13 +417,30 @@ struct
     then Display.init board
     else print_endline "init done";
     try
-      while true do
+      let st_by_st = ref (true) in
+      let continue = ref (true) in
+      let react = function
+	| 's' | '\n' -> ()
+	| 'r' -> st_by_st := false
+	| 'p' | ' ' -> st_by_st := true
+	| 'q'  (*| s when int_of_char s = 27*) ->
+	   continue := false
+	| _ -> () in
+      while !continue do
         Printf.printf "tick %d\n%!" game.tick;
         if use_graphics
         then
           begin
             Display.show board state.game;
-            ignore (Graphics.wait_next_event [Graphics.Key_pressed]);
+            if Graphics.key_pressed ()
+	    then react (Graphics.read_key ())
+	    else if !st_by_st then
+	      react (Graphics.wait_next_event [Graphics.Key_pressed]).Graphics.key;
+	    if not !st_by_st
+	    then let () =
+		   try ignore(Unix.select [] [] [] 0.005)
+		   with Unix.Unix_error (Unix.EINTR, _, _) -> ()
+		 in ();
           end;
         tick state
       done

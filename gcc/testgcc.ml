@@ -1,8 +1,8 @@
-#mod_use "../_build/gcc/pp.ml";;
-#mod_use "../_build/gcc/gcc_instr.ml";;
-#mod_use "../_build/gcc/gcc.ml";;
-#mod_use "../_build/gcc/gcc_parser.ml";;
-#mod_use "../_build/gcc/gcc_lexer.ml";;
+#mod_use "_build/gcc/pp.ml";;
+#mod_use "_build/gcc/gcc_instr.ml";;
+#mod_use "_build/gcc/gcc.ml";;
+#mod_use "_build/gcc/gcc_parser.ml";;
+#mod_use "_build/gcc/gcc_lexer.ml";;
 
 open Gcc;;
 open Gcc_instr;;
@@ -21,7 +21,7 @@ let input = {
   d = [ control_tag Stop () ];
 }
 
-let lambda_program = Gcc_lexer.program "../dummy.gcc" |> Array.of_list
+let lambda_program = Gcc_lexer.program "random.gcc" |> Array.of_list
 
 let _ = run lambda_program input |> untyped
 

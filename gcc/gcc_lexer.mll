@@ -37,7 +37,7 @@ rule token = parse
 | "ST" {ST(get_pos lexbuf)}
 | "DBUG" {DBUG(get_pos lexbuf)}
 | "BRK" {BRK(get_pos lexbuf)}
-| ['0' - '9']+ as i { INTEGER (get_pos lexbuf, int_of_string i)}
+| "-"? ['0' - '9']+ as i { INTEGER (get_pos lexbuf, int_of_string i)}
 | eof {EOF}
 | _ { Format.eprintf "%a@[ Error:@ Lexing error@]@."
 		     Gcc_instr.print_position (get_pos lexbuf);

@@ -19,6 +19,9 @@ module G = struct
         mutable tick_to_move: int;
         mutable direction: int;
         mutable vitality: int;
+(*  0: standard;
+    1: fright mode;
+    2: invisible. *)
 
         index: int;      (* ghost index, between 0 and 3 included *)
       }
