@@ -4,9 +4,7 @@ OCAMLBUILD=ocamlbuild -no-hygiene
 .PHONY: force
 
 all: force tiles.ml
-	$(OCAMLBUILD) -use-ocamlfind simulator.byte
-	$(OCAMLBUILD) -use-ocamlfind main.byte
-	$(OCAMLBUILD) -use-ocamlfind ghc_trace.byte
+	$(OCAMLBUILD) -use-ocamlfind simulator.byte main.byte ghc_trace.byte
 
 display_test: force tiles.ml
 	$(OCAMLBUILD) -tag debug display_test.byte

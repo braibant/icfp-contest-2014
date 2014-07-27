@@ -389,7 +389,7 @@ struct
           tag Int 0; (* second argument: unused so far *)
         |] ];
         c = Code 0;
-        d = [](*[ control_tag Stop () ]*);
+        d = [ control_tag Stop () ];
       }
       in
       match run lambda_program input with
