@@ -48,8 +48,10 @@ module L = struct
           c = _;
           d = [];
         } ->
-        Printf.printf "lambda-man: %i instrs\n%!" !Gcc.nb_step;
-        state, untag Int move
+	 let dir = untag Int move in
+        Printf.printf "lambda-man: %i instrs to find dir %i\n%!"
+		      !Gcc.nb_step dir;
+        state, dir
       | _ -> failwith "gcc step failure"
 
   let move gcc_env lambda_code state board pos =
@@ -140,7 +142,6 @@ module G = struct
   let reset ghost fright_mode (x,y) =
     ghost.x <- x;
     ghost.y <- y;
-    ghost.tick_to_move <- Delay.ghost.(ghost.index mod 4);
     ghost.direction <- 2;
     ghost.vitality <- match fright_mode with | None -> 0 | Some _ -> 2
 
@@ -231,6 +232,7 @@ struct
 	    ((Board.ghosts_start board).(ghost.G.index))
 
   let start_fright_mode game =
+    Format.eprintf "Terror@.";
     Array.iter (fun ghost ->
 		ghost.G.direction <- ghost.G.direction + 2 mod 4;
 		ghost.G.vitality <- 1;
@@ -242,7 +244,6 @@ struct
     Array.iter (fun ghost ->
 		ghost.G.vitality <- 0;
 	       ) game.ghosts;
-
     game.fright_mode <- None
 
   let tick state =
@@ -272,6 +273,7 @@ struct
           if ghost.G.tick_to_move = game.tick
           then
             begin
+              Printf.printf "ghost %i to move\n" i;
               let direction, new_position =
 		G.move ghc_env ghost board state.ghost_procs.(i) in
 	      G.set_direction ghost direction;
@@ -318,24 +320,24 @@ struct
        Lambda-Man, then depending on whether or not fright mode is active,
        Lambda-Man either loses a life or eats the ghost(s). See below for
        details. *)
-    begin try
-        Array.iter
-          (fun ghost ->
-           if lman.L.x = ghost.G.x
-           && lman.L.y = ghost.G.y
-           then
-             begin
-               (* Check what happens if two lambda-men are eaten at
+    begin
+      Array.iter
+        (fun ghost ->
+         if lman.L.x = ghost.G.x
+            && lman.L.y = ghost.G.y
+         then
+           begin
+	     Format.printf "Beware, clash with vitality %i! @."
+			   ghost.G.vitality;
+             (* Check what happens if two lambda-men are eaten at
                   the same point in time. *)
-               if ghost.G.vitality = 0
-               then raise Reset_positions
-               else if ghost.G.vitality = 1
-               then eat_a_ghost lman ghost
-               else ()
-             end
-          ) game.ghosts;
-      with
-        Reset_positions -> reset_positions game
+             if ghost.G.vitality = 0
+             then reset_positions game
+             else if ghost.G.vitality = 1
+             then eat_a_ghost lman ghost
+             else ()
+           end
+        ) game.ghosts;
     end;
 
     (* Next, if all the ordinary pills (ie not power pills) have been
