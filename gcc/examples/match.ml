@@ -16,6 +16,7 @@ let x =
 *)
 open Simu
 
+(*
 let good_square = function
   | Pill | Fruit -> 1
   | _ -> 2
@@ -27,8 +28,8 @@ let main_gcc = [good_square Wall;
                 good_square Fruit;
                 good_square Lambda_start;
                 good_square Ghost_start]
+*)
 
-(*
 
 type case =
   | A | B | C | D
@@ -39,8 +40,4 @@ let f x y = match x,y with
   | D,A -> 3
   | _ -> 4
 
-let main_gcc = [f A B]
-
-             (*;f C A; f D A; f B D; f B C]*)
-
-*)
+let main_gcc = [f A B;f C A; f D A; f B D; f B C]
