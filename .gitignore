@@ -3,3 +3,4 @@ _build/
 /gcc/.merlin
 tiles.ml
 /gcc/configure.ml
+/gcc/stdlib/simu.cmi
