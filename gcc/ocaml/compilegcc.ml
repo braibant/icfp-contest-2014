@@ -3,6 +3,7 @@ open Lambda
 open Gcc_instr
 
 module MStr = Map.Make(String)
+module MInt = Map.Make(struct type t = int let compare = compare end)
 
 type address = {aframe: int; (* in which frame *)
                 avar  : int;}
@@ -15,7 +16,8 @@ type slots = {
 
 type env = {
   slots: slots;
-  cenv: cenv
+  cenv: cenv;
+  scatch: address MInt.t
 }
 
 let save_instrs env instrs =
@@ -31,7 +33,8 @@ let get_slots env =
 let shift_frame env =
   let map addr = {addr with aframe = addr.aframe + 1} in
   let cenv = MStr.map map env.cenv in
-  {env with cenv = cenv}
+  let scatch = MInt.map map env.scatch in
+  {env with cenv = cenv; scatch = scatch}
 
 let add_frame env x addr =
   {env with cenv = MStr.add (Ident.unique_name x) addr env.cenv}
@@ -135,6 +138,22 @@ let rec compile env lambda =
         (* let lblock = save_instrs env (mk_block ()@[JOIN]) in *)
         (* [v;ATOM;SEL(lint,lblock)] *)
     end
+
+  (** static raise *)
+  | Lstaticcatch(lbody,(i,vars), lhandler) ->
+    let env' = shift_frame env in
+    let env',_ = prepare_env env' 0 vars in
+    let lhandler = save_instrs env' (compile env' lhandler@[RTN]) in
+    let env = shift_frame env in
+    let env = {env with scatch = MInt.add i {aframe=0;avar=0} env.scatch} in
+    let lbody = save_instrs env (compile env lbody@[RTN]) in
+    (LDF lhandler)::(LDF lbody)::[AP(1)]
+
+  | Lstaticraise(i,args) ->
+    let lhandler = MInt.find i env.scatch in
+    (List.concat (List.map (compile env) args)) @
+    [LD(lhandler.aframe,lhandler.avar);
+     AP (List.length args)]
 
   (** primitive arithmetic *)
   | Lprim(Pmulint|Psubint|Paddint|Pdivint|Pintcomp(Ceq|Cgt|Cge)
@@ -243,7 +262,8 @@ let rec compile env lambda =
 
 
 let compile expr =
-  let env =  {cenv = MStr.empty; slots = {sinstr=[];snext=10}} in
+  let env =  {cenv = MStr.empty; slots = {sinstr=[];snext=10};
+              scatch = MInt.empty} in
   let env,_ = prepare_env env 0 [simu_world;simu_ghost] in
   let env = shift_frame env in
   let main = save_instrs env ((compile env expr)@[RTN]) in
