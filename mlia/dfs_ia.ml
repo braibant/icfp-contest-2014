@@ -1,57 +1,3 @@
-(* Implementation of dictionnaries using red black trees *)
-
-type key = int * int
-
-type 'a rbt =
-  | Empty
-  | Red of 'a rbt * key * 'a * 'a rbt
-  | Black of 'a rbt * key * 'a * 'a rbt
-
-let empty = Empty
-
-let rec mem cmp x = function
-  | Empty -> false
-  | Red (l,v,r) | Black (l,v,r) ->
-    begin
-      match compare x v with
-        | -1 -> mem cmp x l
-        | 0 -> true
-        | _ -> mem cmp x r
-    end
-
-let blacken = function
-  | Red (l,v,r) -> Black (l,v,r)
-  | (Empty | Black _) as n -> n
-
-let balance = function
-  | Black ((Red (Red (a, x, b), y, c)
-               | Red (a, x, Red (b, y, c))), z, d)
-  | Black (a, x, (Red (Red (b, y, c), z, d)
-                     | Red (b, y, Red (c, z, d))))
-    -> Red (Black (a, x, b), y, Black (c, z, d))
-  | n -> n
-
-type color = R | B
-
-let color = function
-  | Red _ -> R
-  | Empty | Black _ -> B
-
-let mk col l v r = match col with
-  | B -> Black (l, v, r)
-  | R -> Red (l, v, r)
-
-let insert cmp x n =
-  let rec insert x t = match t with
-    | Empty -> Red (Empty, x, Empty)
-    | Red (l,v,r) | Black (l,v,r) ->
-      let l, r =
-        if cmp x v <= 0
-        then insert x l, r
-        else l, insert x r in
-      balance (mk (color t) l v r)
-  in blacken (insert x n)
-
 
 (** Avoid polymorphic equality *)
 let eq_int m n = (m : int) = n
@@ -138,6 +84,8 @@ type world =
   * fruit_status )
 and map = square list list
 
+type graph  =
+    (location * (dir * location) list) list
 
 (** Standard Library *)
 let rec nth n = function
