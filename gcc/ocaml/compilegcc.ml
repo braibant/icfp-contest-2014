@@ -144,6 +144,9 @@ let rec compile env lambda =
      | Pmulint -> MUL | Psubint -> SUB | Paddint -> ADD | Pdivint -> DIV
      | Pintcomp(Ceq) -> CEQ | Pintcomp(Cgt) -> CGTE | Pintcomp(Cge) -> CGT
      | _ -> assert false]
+
+  | Lprim(Pnegint,[a]) -> (LDC 0)::(compile env a)@[SUB]
+
   | Lprim(Pintcomp(Cneq),args) ->
     compile env (Lprim(Psubint,[Lconst(Const_base(Const_int(1)));
                                 Lprim(Pintcomp(Ceq),args)]))
