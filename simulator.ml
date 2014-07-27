@@ -451,10 +451,10 @@ struct
 	    else if !st_by_st then
 	      react (Graphics.wait_next_event [Graphics.Key_pressed]).Graphics.key;
 	    if not !st_by_st
-	    then (*let () =
-		   try ignore(Unix.select [] [] [] !sleep)
-		   with Unix.Unix_error (Unix.EINTR, _, _) -> ()
-		 in*) ();
+	    then let () =
+		     try ignore(Unix.select [] [] [] !sleep)
+                     with Unix.Unix_error (Unix.EINTR, _, _) -> ()
+		 in ();
           end;
         tick state
       done
