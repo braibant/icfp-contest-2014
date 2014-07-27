@@ -64,9 +64,9 @@ type t = {
 *)
 type t =
   ( map
-  * lambda_status
-  * ghost_status list
-  * fruit_status )
+  * (lambda_status
+  * (ghost_status list
+  * fruit_status)) )
 and map = square list list
 
 (** the order of the val world and ghost,
