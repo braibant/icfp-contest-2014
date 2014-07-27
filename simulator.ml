@@ -48,6 +48,7 @@ module L = struct
           c = _;
           d = [];
         } ->
+        Printf.printf "lambda-man: %i instrs\n%!" !Gcc.nb_step;
         state, untag Int move
       | _ -> failwith "gcc step failure"
 
@@ -254,7 +255,6 @@ struct
       if lman.L.tick_to_move = game.tick
       then
         begin
-          Printf.printf "lambda-man to move\n";
           let gcc_env = make_gcc_env game in
           let direction, new_position =
             let pos = L.position lman in
@@ -392,13 +392,15 @@ struct
         d = [ control_tag Stop () ];
       }
       in
-      match run lambda_program input with
+      match Gcc.run lambda_program input with
         | {
             s = [Value (Pair, (state, step))];
             e = [Unique [|_; _|]];
             c = _;
             d = [];
-          } -> state, step
+          } ->
+          Printf.printf "lambda-man: %i instrs\n%!" !Gcc.nb_step;
+          state, step
         | _ -> failwith "gcc initialization failure"
     in
     {

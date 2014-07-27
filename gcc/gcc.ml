@@ -302,7 +302,11 @@ let st n i {s;e;c;d} =
   let c = next_instr c in
   {s;e;c;d}
 
-let step inst = match inst with
+let nb_step = ref 0
+
+let step inst =
+  incr nb_step;
+ match inst with
 | LDC n -> ldc n
 | LD (n, i) -> ld n i
 | ADD -> add
@@ -401,6 +405,8 @@ let rec run code regs =
     | `Error err -> error err
     | `Stop regs -> regs
     | `Step regs -> run code regs
+
+let run code regs = nb_step := 0; run code regs
 
 (** Examples *)
 let local =
