@@ -139,6 +139,7 @@ module Make (M : sig
                    val board : Board.t
                    val ghost_programs : Ghc.code array
                    val lambda_program : Gcc_instr.instruction array
+                   val use_graphics : bool
                  end) =
 struct
   include M
@@ -367,10 +368,10 @@ struct
   our simulator.  *)
   let repl () =
     let state = init in
-    Display.init board;
+    if use_graphics then Display.init board;
     try
       while true do
-        Display.show board state.game;
+        if use_graphics then Display.show board state.game;
         tick state
       done
     with
