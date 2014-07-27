@@ -538,3 +538,9 @@ let untyped : registers -> Untyped.registers =
     let c = untyped_code_ptr c in
     let d = untyped_control_stack d in
     Untyped.({s;e;c;d})
+
+let () = Printexc.register_printer (function
+    | Run_error(error,{c=Code c}) ->
+      Some (Pp.sprintf "Gcc Error at %i: %a@."
+              c print_run_error error)
+    | _ -> None)
