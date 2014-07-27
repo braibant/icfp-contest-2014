@@ -72,8 +72,12 @@ and map = square list list
 (** the order of the val world and ghost,
     must not be changed *)
 
-val world: map
+(** initial world *)
+val world: t
 
 type ghost_code
 
+(** initial ghosts *)
 val ghosts: ghost_code list
+
+type 'a main_type = 'a * ('a -> t -> ('a * int))
