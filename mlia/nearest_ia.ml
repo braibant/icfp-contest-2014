@@ -115,61 +115,24 @@ let move x y direction =
 
 let step (rnd, old_dir) (map, lman, ghosts, fruits) =
   let (vitality, (x,y), direction, lives, score) = lman in
+  let (tx,ty) = match nearest_pill (x,y) map with
+    |  None -> x+1,y
+    |  Some (tx,ty) -> tx,ty
+  in
+  let dx = abs (x - tx) in
+  let dy = abs (y - ty) in
+  let d1 = if x <= tx then Right else Left in
+  let d2 = if y <= ty then Down  else Up in
+  let new_dir =   if dx <= dy then d2 else d1 in
   let test d =
     let x,y = move x y d in
-    let cell = content map x y in                (* there is a pill *)
-    cell = 2 || cell = 3
+    good_cell (content map x y )
   in
-  let new_dir = list_find test [Up; Left; Down; Right] in
-  let new_dir =
-    match new_dir with
-      | None ->
-        let Some x = list_find
-          (fun d ->
-            let x,y = move x y d in
-            let cell = content map x y in                (* there is a pill *)
-            cell <> 0
-          ) [Up; Left; Down; Right]
-        in x
-      | Some d -> d
-  in
-  (rnd, new_dir), new_dir
+  let new_dir = list_find test [new_dir; d2; d1; Up; Left; Right; Down] in
+  match new_dir with
+    | None -> (rnd, old_dir), old_dir
+    | Some new_dir ->
+      ((rnd, new_dir), new_dir)
 
-(* let step (rnd, old_dir) (map, lman, ghosts, fruits) = *)
-(*   let rnd =random rnd in *)
-(*   if modulo (rnd / 54321) 100 = 0 *)
-(*   then *)
-(*     let new_dir = (modulo (rnd / 54321) 4)  in *)
-(*     let new_dir = direction_of_int new_dir in *)
-(*     let direction = *)
-(*       (\* do not U-turn *\) *)
-(*       if opposite old_dir new_dir *)
-(*       then old_dir *)
-(*       else new_dir in *)
-(*     ((rnd, direction), direction) *)
-(*   else *)
-(*     begin *)
-(*       let (vitality, (x,y), direction, lives, score) = lman in *)
-(*       let (tx,ty) = match nearest_pill (x,y) map with *)
-(*         |  None -> x+1,y *)
-(*         |  Some (tx,ty) -> tx,ty *)
-(*       in *)
-(*       let dx = abs (x - tx) in *)
-(*       let dy = abs (y - ty) in *)
-(*       let d1 = if x <= tx then Right else Left in *)
-(*       let d2 = if y <= ty then Down  else Up in *)
-(*       let new_dir =   if dx <= dy then d2 else d1 in *)
-(*       let test d = *)
-(*         let x,y = move x y d in *)
-(*         good_cell (content map x y ) *)
-(*       in *)
-(*       let new_dir = list_find test [new_dir; d2; d1; Up; Left; Down] Right in *)
-(*       (\* let direction = *\) *)
-(*       (\*   if opposite old_dir new_dir *\) *)
-(*       (\*   then old_dir *\) *)
-(*       (\*   else new_dir *\) *)
-(*       (\* in *\) *)
-(*       ((rnd, new_dir), new_dir) *)
-(*     end *)
 let state = (0,0)
 let main_gcc = (state, step)
