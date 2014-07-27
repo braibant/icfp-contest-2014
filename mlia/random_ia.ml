@@ -8,7 +8,10 @@ let opposite a b =
   else if (a - b) = -2 then true
   else false
 
-let random n = modulo (n * 1103515245 + 12345) 2147483648
+let random n =
+  let n' = n * 69069 + 1 in
+  if n' < 0 then 0 - n' else n'
+
 let step (rnd, old_dir) _world =
   let rnd = random rnd in
   let new_dir = modulo (rnd / 54321) 4 in
