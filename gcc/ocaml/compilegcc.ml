@@ -186,6 +186,21 @@ let rec compile env lambda =
   (** stop compiling at main_gcc *)
   | Llet(_,main,e1,_) when main.Ident.name = "main_gcc"  ->
     compile env e1
+  (** stop compiling at main_ia;
+      we use a different calling convention: main_ia is of the form
+        let main_ia world ghosts = ...
+      but we don't want to return the closure,
+      rather directly run the function body
+  *)
+  | Llet(_,main,e1,_) when main.Ident.name = "main_ia"  ->
+    begin match e1 with
+      | Lfunction(Curried, [world;ghosts], body) ->
+        let env,_n = prepare_env env 0 [world;ghosts] in
+        compile env body
+      | _ ->
+        failwith "invalid main_ia shape: \
+                  two currified arguments expected"
+    end
   | Llet(_,x,e1,e2) ->
     compile env (Lapply(Lfunction(Curried,[x],e2),[e1],Location.none))
   (** GCC primitive *)
