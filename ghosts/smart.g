@@ -132,6 +132,8 @@ l3:
 l4:
   div c, 2        ; main direction of lambda-man
   div d, 2        ; secondary direction
+  and c, 3
+  and d, 3
 
 test:
   int 3
@@ -161,12 +163,12 @@ go:
   hlt
 
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; next a <- X, b <- Y, [254] <- DIR, [255] <- RETURN
+;;  this function has zero bug.
 next:
         MUL [254], 2
-        ADD [254], 2
+        ADD [254], 3
         MOV H, PC
         ADD H, [254]
         MOV PC, H
@@ -179,3 +181,7 @@ next:
         SUB A, 1                ; code for 3
 next_end:
         MOV PC, [255]
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

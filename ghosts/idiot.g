@@ -77,9 +77,6 @@ l3:
 l4:
   div c, 2        ; main direction of lambda-man
   div d, 2        ; secondary direction
-
-
-
 ; if panic mode, reverse direction
 
   int 3
@@ -92,6 +89,7 @@ l4:
 test:
   int 3
   int 5
+  and c, 3
   mov [254], c
   mov [255], ret1
   mov PC, next    ; get coordinates of square in direction c
@@ -123,7 +121,7 @@ go:
 ; next a <- X, b <- Y, [254] <- DIR, [255] <- RETURN
 next:
         MUL [254], 2
-        ADD [254], 2
+        ADD [254], 3
         MOV H, PC
         ADD H, [254]
         MOV PC, H

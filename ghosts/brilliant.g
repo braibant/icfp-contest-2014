@@ -12,6 +12,14 @@
 %curmode :: [5]        ; 0 = chase, 1 = scatter
 %scatterx :: [6]
 %scattery :: [7]
+%principal :: [8]
+%secondary :: [9]
+; declarations for follow
+%good_dir_val     :: [248]
+%good_dir_num     :: [249]
+%current_x   :: [250]
+%current_y   :: [251]
+%current_dir :: [252]
 
 ; clock
   add %clkl, 8               ; clock high period 256/8 = 32
@@ -76,9 +84,6 @@ clipxdone:
   jlt clipydone, %scattery, 128
   mov %scattery, 0
 clipydone:
-  mov a, %scatterx
-  mov b, %scattery
-  int 8
 scatter_continue:
   mov a, %scatterx
   mov b, %scattery
@@ -132,10 +137,14 @@ l3:
 l4:
   div c, 2        ; main direction of lambda-man
   div d, 2        ; secondary direction
-
+  and c, 3
+  and d, 3
 test:
   int 3
   int 5
+  mov %principal, c
+  mov %secondary, d
+
   mov [254], c
   mov [255], ret1
   mov PC, next    ; get coordinates of square in direction c
@@ -144,29 +153,118 @@ ret1:
   jeq secondary, a, 0    ; go in main direction if not wall
 
   int 3
-  int 6
-  add b, 2
-  and b, 3
-  and c, 3
-  jeq secondary, b, c
-  jmp go
+  int 6           ; get ghost current direction
+  add b, 2        ; reverse the direction
+  and b, 3        ; reverse the direction, cont.
+  and %principal, 3        ; clip the principal direction
+  jeq secondary, b, %principal          ; check if principal direction is forbidden
+  int 3
+  int 5
+  mov %current_dir, %principal
+  mov [253], testing_if_good_path
+  mov PC, follow
+testing_if_good_path:
+  MOV H, A
+  INT 3
+  INT 5
+  ;; MOV F, A
+  ;; MOV G, B
+  ;; MOV D, %principal
+  ;; MOV E, %secondary
+  ;; MOV C, %curmode
+  ;;  int
+  jmp go          ; principal direction is valid
 
 secondary:
-  mov c, d        ; go in secondary direction
+  mov %principal, %secondary        ; go in secondary direction
 
 go:
-  and c, 3        ; reduce modulo 4
-  mov a, c
+  and %principal, 3        ; reduce modulo 4
+  mov a, %principal
   int 0           ; direction is in a
   hlt
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; follow a <- X, b <- Y, %current_dir<- DIR, [253] <- RETURN
+; return 0 in a if it is a good choice, and something else otherwise
+follow:
+   ;; MOV C, %current_dir          ; debug
+   ;; MOV H, 42                    ; debug
+   ;; int 8                        ; debug
+   MOV [254], %current_dir
+   MOV [255], follow_start
+   MOV PC, next
+follow_start:
+  ; we are in the first tile of the path
+  ;; MOV H, 43
+  ;; INT 8
+  MOV %good_dir_num, 0
+  MOV %current_x, a
+  MOV %current_y, b
+  MOV [254], %current_dir      ; prepare the call to next for current dir
+  MOV [255], lwalling0         ; prepare the call...
+  MOV PC, next
+lwalling0:
+  ;; MOV H, 44
+  ;; INT 8
+  INT 7
+  JEQ lwalling2, A, 0
+  MOV %good_dir_val, %current_dir
+  INC %good_dir_num
+lwalling1:
+  INC %current_dir
+  AND %current_dir, 3
+  MOV a, %current_x
+  MOV b, %current_y
+  ;; mov c, %current_dir           ; debug
+  ;; mov h, 45                     ; debug
+  ;; INT 8                         ; debug
+  MOV [254], %current_dir      ; prepare the call to next for current dir
+  MOV [255], lwalling2         ; prepare the call...
+  MOV PC, next
+lwalling2:
+  ;; MOV H, 44
+  ;; INT 8
+  INT 7
+  JEQ lwalling3, A, 0
+  MOV %good_dir_val, %current_dir
+  INC %good_dir_num
+lwalling3:
+  ADD %current_dir, 2
+  AND %current_dir, 3
+  MOV a, %current_x
+  MOV b, %current_y
+  MOV [254], %current_dir      ; prepare the call to next for current dir
+  MOV [255], lwalling4         ; prepare the call...
+  MOV PC, next
+lwalling4:
+  ;; MOV H, 44
+  ;; INT 8
+  INT 7
+  JEQ lwalling5, A, 0
+  MOV %good_dir_val, %current_dir
+  INC %good_dir_num
+lwalling5:
+  JEQ not_ok, %good_dir_num, 0
+  JEQ continue, %good_dir_num, 1
+  MOV A,0
+  MOV PC, [253]
+not_ok:
+  MOV A,1
+  MOV PC, [253]
+continue:
+  MOV %current_dir, %good_dir_val
+  MOV A, %current_x
+  MOV B, %current_y
+  MOV PC, follow
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; next a <- X, b <- Y, [254] <- DIR, [255] <- RETURN
+;;  this function has zero bug.
 next:
         MUL [254], 2
-        ADD [254], 2
+        ADD [254], 3
         MOV H, PC
         ADD H, [254]
         MOV PC, H
