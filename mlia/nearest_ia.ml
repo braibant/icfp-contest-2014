@@ -84,36 +84,92 @@ let direction_of_int i =
   else if i = 2 then Down
   else Left
 
+let rec list_nth n l =
+  match l with
+    | [] -> assert false
+    | t::q ->
+      if n = 0 then t
+      else
+        list_nth (n - 1) q
+
+let content map x y =
+  list_nth x (list_nth y map)
+
+let rec list_find f l =
+  match l with
+    | [] -> None
+    | t::q ->
+      if f t
+      then Some t
+      else list_find f q
+
+let good_cell cell =
+  cell <> 0
+
+let move x y direction =
+  match direction with
+    | Up -> x, y - 1
+    | Down -> x, y + 1
+    | Left -> x - 1, y
+    | Right -> x + 1, y
+
 let step (rnd, old_dir) (map, lman, ghosts, fruits) =
-  let rnd =random rnd in
-  if modulo (rnd / 54321) 100 = 0
-  then
-    let new_dir = (modulo (rnd / 54321) 4)  in
-    let new_dir = direction_of_int new_dir in
-    let direction =
-      (* do not U-turn *)
-      if opposite old_dir new_dir
-      then old_dir
-      else new_dir in
-    ((rnd, direction), direction)
-  else
-    begin
-      let (vitality, (x,y), direction, lives, score) = lman in
-      let (tx,ty) = match nearest_pill (x,y) map with
-        |  None -> x+1,y
-        |  Some (tx,ty) -> tx,ty
-      in
-      let dx = abs (x - tx) in
-      let dy = abs (y - ty) in
-      let d1 = if x <= tx then Right else Left in
-      let d2 = if y <= ty then Down  else Up in
-      let new_dir =   if dx <= dy then d2 else d1 in
-      (* let direction = *)
-      (*   if opposite old_dir new_dir *)
-      (*   then old_dir *)
-      (*   else new_dir *)
-      (* in *)
-      ((rnd, new_dir), new_dir)
-    end
+  let (vitality, (x,y), direction, lives, score) = lman in
+  let test d =
+    let x,y = move x y d in
+    let cell = content map x y in                (* there is a pill *)
+    cell = 2 || cell = 3
+  in
+  let new_dir = list_find test [Up; Left; Down; Right] in
+  let new_dir =
+    match new_dir with
+      | None ->
+        let Some x = list_find
+          (fun d ->
+            let x,y = move x y d in
+            let cell = content map x y in                (* there is a pill *)
+            cell <> 0
+          ) [Up; Left; Down; Right]
+        in x
+      | Some d -> d
+  in
+  (rnd, new_dir), new_dir
+
+(* let step (rnd, old_dir) (map, lman, ghosts, fruits) = *)
+(*   let rnd =random rnd in *)
+(*   if modulo (rnd / 54321) 100 = 0 *)
+(*   then *)
+(*     let new_dir = (modulo (rnd / 54321) 4)  in *)
+(*     let new_dir = direction_of_int new_dir in *)
+(*     let direction = *)
+(*       (\* do not U-turn *\) *)
+(*       if opposite old_dir new_dir *)
+(*       then old_dir *)
+(*       else new_dir in *)
+(*     ((rnd, direction), direction) *)
+(*   else *)
+(*     begin *)
+(*       let (vitality, (x,y), direction, lives, score) = lman in *)
+(*       let (tx,ty) = match nearest_pill (x,y) map with *)
+(*         |  None -> x+1,y *)
+(*         |  Some (tx,ty) -> tx,ty *)
+(*       in *)
+(*       let dx = abs (x - tx) in *)
+(*       let dy = abs (y - ty) in *)
+(*       let d1 = if x <= tx then Right else Left in *)
+(*       let d2 = if y <= ty then Down  else Up in *)
+(*       let new_dir =   if dx <= dy then d2 else d1 in *)
+(*       let test d = *)
+(*         let x,y = move x y d in *)
+(*         good_cell (content map x y ) *)
+(*       in *)
+(*       let new_dir = list_find test [new_dir; d2; d1; Up; Left; Down] Right in *)
+(*       (\* let direction = *\) *)
+(*       (\*   if opposite old_dir new_dir *\) *)
+(*       (\*   then old_dir *\) *)
+(*       (\*   else new_dir *\) *)
+(*       (\* in *\) *)
+(*       ((rnd, new_dir), new_dir) *)
+(*     end *)
 let state = (0,0)
 let main_gcc = (state, step)
