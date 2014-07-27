@@ -70,8 +70,8 @@ let rec print_value fmt = function
                            print_value v1 print_value v2
   | Value(Closure,(Code c,_)) -> Format.fprintf fmt "(closure %i,_)" c
 
-exception Machine_stop
-exception Break_reached
+exception Machine_stop of registers
+exception Break_reached of registers
 exception Step_error of step_error
 
 let error err = raise (Step_error err)
@@ -256,12 +256,12 @@ let ap tail n {s;e;c;d} =
   let c = closure_code in
   {s;e;c;d}
 
-let rtn {s;e=_;c=_;d} =
+let rtn {s;e;c;d} =
   let x, d = pop D d in
   begin
     let Control (tag, _) = x in
     match tag with
-      | Stop -> raise Machine_stop
+      | Stop -> raise (Machine_stop {s;e;c;d})
       | _ -> ()
   end;
   (* difference from the spec: see [ap] above *)
@@ -293,7 +293,7 @@ let rap tail n {s;e;c;d} =
   let c = f in
   {s;e;c;d}
 
-let stop _reg = raise Machine_stop
+let stop regs = raise (Machine_stop regs)
 
 let st n i {s;e;c;d} =
   let frame = nth E e n in
@@ -328,7 +328,7 @@ let step inst = match inst with
 | TAP n -> ap Tail n
 | TRAP n -> rap Tail n
 | ST (n, i) -> st n i
-| BRK -> raise Break_reached
+| BRK -> (fun regs -> raise (Break_reached regs))
 (* currently unsupported *)
 | DBUG -> failwith "instruction DBUG not yet implemented"
 
@@ -396,11 +396,11 @@ let rec run code regs =
   match begin
     try `Step (step instr regs) with
       | Step_error err -> `Error (Step (err, instr))
-      | Machine_stop -> `Stop
+      | Machine_stop regs -> `Stop regs
   end with
-    | `Step regs -> run code regs
     | `Error err -> error err
-    | `Stop -> regs
+    | `Stop regs -> regs
+    | `Step regs -> run code regs
 
 (** Examples *)
 let local =

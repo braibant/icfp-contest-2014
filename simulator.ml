@@ -336,21 +336,20 @@ struct
       let gcc_env = make_gcc_env game in
       let open Gcc_instr in
       let open Gcc in
-      let input =
-        { init_regs with
-          s = [
-            tag Int 0; (* second argument: unused so far *)
-            gcc_env;   (* first argument: the state of the world *)
-          ];
-	  d = [ control_tag Stop () ];
-        }
-        |> ldf (Code 0)  (* load the main program *)
-        |> ap Tail 2     (* apply the main program *)
+      let input = {
+        s = [];
+        e = [Unique [|
+          gcc_env;   (* first argument: the state of the world *)
+          tag Int 0; (* second argument: unused so far *)
+        |] ];
+        c = Code 0;
+        d = [ control_tag Stop () ];
+      }
       in
       match run lambda_program input with
         | {
             s = [Value (Pair, (state, step))];
-            e = [];
+            e = [Unique [|_; _|]];
             c = _;
             d = [];
           } -> state, step
