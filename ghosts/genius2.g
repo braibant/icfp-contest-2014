@@ -1,11 +1,11 @@
-; genius.g
+; genius2.g
 
-; a variant of brilliant.g
-; avoid following another [lower-numbered] ghost
+; a variant of genius.g
+; no alternance between scatter and chase
 
 
 ;;; constant: scatter period, scatter mode time is 1 over this period
-        %scatter_period :: 10
+        %scatter_period :: 8
 
 ;;; variables
 %lastx :: [1]
@@ -38,7 +38,7 @@
 ;;; %next_return :: [255]
 
 ; clock
-  add %clkl, 10               ; clock high period 128/10 = 10 moves
+  add %clkl, 6               ; clock high period 128/10 = 12 moves
   jlt clock_done, %clkl, 128
   inc %clkh
   mov %clkl, 0
@@ -74,7 +74,7 @@ detect_done:
   jeq scatter, a, 1    ; panic mode -> scatter
   jeq chase, a, 2      ; invisible mode -> chase
                        ; normal mode -> scatter/chase according to clock
-
+  jmp chase
 ; if clock-high = 0 mod %scatter_period, then scatter
         mov d, %clkh
         div d, %scatter_period
