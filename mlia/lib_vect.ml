@@ -1,3 +1,5 @@
+open! Lib_list
+
 type 'a vect_tree = Tree : ('a, 'b) vect_tag * 'b -> 'a vect_tree
 and ('a, _) vect_tag =
 | Leaf : ('a, 'a) vect_tag
