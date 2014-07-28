@@ -1,5 +1,6 @@
 
 open Lambda
+open Asttypes
 open Gcc_instr
 
 module MStr = Map.Make(String)
