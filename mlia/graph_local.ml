@@ -228,15 +228,20 @@ let find_pill (map: square vect vect) graph pos =
 
 (* let _ = dfs map graph [] (2,2) 5 5;; *)
 
-let invalid map graph ghosts pos path =
-  fst
-    (list_fold_left (fun (invalid,pos) dir ->
-      let pos = next_pos dir pos in
-      (invalid ||      list_mem eq_pos pos ghosts), pos
-     ) (false, pos) path)
+let rec invalid ghosts_places pos path =
+  let ghosts, ghosts_places = match ghosts_places with
+    | [] -> [], []
+    | t:: q -> t, q
+  in
+  match path with
+    | [] -> false
+    | dir :: q ->
+      let npos = (next_pos dir pos ) in
+      list_mem eq_pos npos ghosts
+      || invalid ghosts_places npos q
 
-let small_distance = 3
-let small_distances = [0;1;2;3]
+let small_distance = 5
+let small_distances = [0;1;2;3;4;5]
 
 let step (graph, path, lives) world =
   let (map, lambda, ghosts, _fruit) = world in
@@ -251,7 +256,9 @@ let step (graph, path, lives) world =
         (reach map graph n ghosts_pos_dir) in
     list_map at_dist small_distances in
   let dir,path =
-    if invalid map graph ghost_pos pos path || path = []
+    if invalid ghost_places pos path
+      || path = []
+      || ghost_near ghost_pos pos 2 > 0
     then
       begin
         match dfs map graph ghost_places pos 10 vita with
