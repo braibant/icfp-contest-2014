@@ -3,9 +3,7 @@ open Simu
 open! Lib
 open! Lib_list
 open! Lib_vect
-
-let vect_map map =
-  vect_of_list (list_map vect_of_list map)
+open! Lib_reach
 
 (** {2 map}  *)
 let get map (i,j) =
@@ -19,9 +17,6 @@ let get map (i,j) =
 let get' map (i,j) =
   get_vect (get_vect map j) i
 
-let get2 map (i,j) =
-  get_vect (get_vect map j) i
-
 let next_pos direction (x, y) = match direction with
   | Up    -> (x,y-1)
   | Right -> (x+1, y)
@@ -32,45 +27,6 @@ let next_pos direction (x, y) = match direction with
 let directions = [Left; Down; Right; Up]
 
 (** Ghost reachability *)
-let eq_dir a b = match a, b with
-  | Up, Up -> true
-  | Down, Down -> true
-  | Left, Left -> true
-  | Right, Right -> true
-  | _, _ -> false
-
-let mem_dir direction li = list_mem eq_dir direction li
- 
-let ghost_step map graph (pos, dir) =
-  let frees = get2 graph pos in
-  let dirs =
-    if mem_dir dir frees then [dir]
-    else match frees with
-      | [_] ->
-          (* only one solution: the only one *)
-        frees
-      | _ ->
-        (* several solution: turning back is forbidden
-           not implemented yet *)
-        frees
-  in
-  list_map (fun dir -> (next_pos dir pos, dir)) dirs
-
-(* [reach map graph n ghost_locations]
-   is the set of positions one of the ghosts placed in
-   [ghost_locations] may be in after [n] steps *)
-let rec reach
-    (map : square vect vect) 
-    (graph : direction list vect vect)
-    (n : int) 
-    (ghosts : (location * direction) list)
-    : (location * direction) list =
-  if n = 0 then ghosts
-  else
-    let next_ghosts = list_rev_append_map 
-      (fun pos -> ghost_step map graph pos) ghosts in
-    reach map graph (n - 1) next_ghosts
-
 
 (** {2 Graphs}  *)
 type graph = (direction list) list list
@@ -143,24 +99,16 @@ let make_graph map =
 (*     | None -> None *)
 (*     | Some l ->  list_nth i  l *)
 
-let get_graph' graph (i,j) =
-  get_vect (get_vect graph j) i
+let get_graph' = get2
 
 let get_graph graph (i,j) =
 Some (get_graph' graph (i,j))
 
-let good_square square =
-  square = Pill
-  || square = Power_pill
-  || square = Fruit
-
-let eq_pos : location -> location -> bool =
-  fun (x, y) (x', y') -> eq_int x x' && eq_int y y'
 
 let mem_pos (pos: location) (li: location list) = list_mem eq_pos pos li
 
 let free map pos =
-  get' map pos <> Wall
+  get2 map pos <> Wall
 
 let abs x =
   if x < 0 then 0 - x else x
@@ -288,7 +236,7 @@ let bfs_default map graph ghosts ghosts_pos pos default f =
 
 let step (graph, path) world =
   let (map, lambda, ghosts, _fruit) = world in
-  let map = vect_map map in
+  let map = vect_of_map map in
   let (vita, pos, lambda_dir, _lives, _score) = lambda in
   let ghost_pos =
     list_map (fun (_vita, pos, dir) -> next_pos dir pos) ghosts in
