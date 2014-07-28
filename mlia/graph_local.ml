@@ -179,6 +179,7 @@ let dfs (map: square vect vect) graph ghosts_places pos length fright=
           match content with
             | Pill -> value + 10, fright
             | Power_pill -> value + 50, fright + 20
+            | Fruit -> value + 50, fright
             | _ -> value, fright
         in
         let value =
