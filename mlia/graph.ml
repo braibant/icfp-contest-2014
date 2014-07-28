@@ -111,11 +111,6 @@ let get_graph graph (i,j) =
 let get_graph' graph (i,j) =
   nth' i (nth' j graph)
 
-let dijkstra graph (lam_x,lam_y) =
-  let queue = pq_empty in
-  let ans = list_map (fun col -> list_map (fun _ -> None)) graph in
-  let () = () in ()
-
 let good_square square =
   square = Pill
   || square = Power_pill
