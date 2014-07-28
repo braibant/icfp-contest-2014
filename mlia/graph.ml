@@ -4,17 +4,61 @@ open! Lib
 open! Liblist
 open! Lib_pq
 
+
+(** {2 priority queue}*)
+
+(* type priority = int *)
+(* type 'a priority_queue = *)
+(*     Empty *)
+(*   | Node of (priority * ('a * ('a priority_queue * 'a priority_queue))) *)
+
+(* let empty = Empty *)
+
+(* let rec insert queue prio elt = *)
+(*   match queue with *)
+(*       Empty -> Node(prio, (elt, (Empty, Empty))) *)
+(*     | Node(p, e, left, right) -> *)
+(*       if prio <= p *)
+(*       then Node(prio, elt, insert right p e, left) *)
+(*       else Node(p, e, insert right prio elt, left) *)
+
+(* let (>>=) e f = *)
+(*   match e with *)
+(*     | None -> None *)
+(*     | Some e -> f e *)
+
+(* let rec remove_top = function *)
+(*   | Empty -> None *)
+(*   | Node(prio, elt, left, Empty) -> Some left *)
+(*   | Node(prio, elt, Empty, right) -> Some right *)
+(*   | Node(prio, elt, (Node(lprio, lelt, _, _) as left), *)
+(*          (Node(rprio, relt, _, _) as right)) -> *)
+(*     if lprio <= rprio *)
+(*     then *)
+(*       remove_top left >>= fun left -> *)
+(*       Some (Node(lprio, lelt, left, right)) *)
+(*     else *)
+(*       remove_top right >>= fun right -> *)
+(*       Some (Node(rprio, relt, left, right)) *)
+
+(* let extract_top = function *)
+(*   | Empty -> None *)
+(*   | Node(prio, elt, _, _) as queue -> *)
+(*     remove_top queue >>= fun q -> *)
+(*       Some (prio, elt, q) *)
+>>>>>>> Graph
+
 (** {2 map}  *)
 let get map (i,j) =
   if i < 0 || j < 0
   then Some Wall
   else
-  match nth j map with
+  match list_nth j map with
     | None -> None
-    | Some line -> nth i line
+    | Some line -> list_nth i line
 
 let get' map (i,j) =
-  nth' i (nth' j map)
+  list_nth' i (list_nth' j map)
 
 let next_pos direction (x, y) = match direction with
   | Up    -> (x,y-1)
@@ -30,9 +74,9 @@ type graph = (direction list) list list
 
 let make_graph map =
   let _, graph =
-    fold_left (fun (j,graph) line ->
+    list_fold_left (fun (j,graph) line ->
       let _, l =
-        fold_left (fun (i,graph) cell ->
+        list_fold_left (fun (i,graph) cell ->
           let pos = i,j in
           match get map pos with
             | None
@@ -40,7 +84,7 @@ let make_graph map =
             | Some _ ->
               begin
                 let edges =
-                  fold_left
+                  list_fold_left
                     (fun edges dir ->
                       match get map (next_pos dir pos) with
                         | None -> edges
@@ -104,12 +148,12 @@ let graph = make_graph map
 (*   done;; *)
 
 let get_graph graph (i,j) =
-  match (nth j graph) with
+  match (list_nth j graph) with
     | None -> None
-    | Some l ->  nth i  l
+    | Some l ->  list_nth i  l
 
 let get_graph' graph (i,j) =
-  nth' i (nth' j graph)
+  list_nth' i (list_nth' j graph)
 
 let good_square square =
   square = Pill
@@ -119,7 +163,7 @@ let good_square square =
 let eq_pos : location -> location -> bool =
   fun (x, y) (x', y') -> eq_int x x' && eq_int y y'
 
-let mem_pos (pos: location) (li: location list) = mem eq_pos pos li
+let mem_pos (pos: location) (li: location list) = list_mem eq_pos pos li
 
 let free map pos =
   match get map pos with
@@ -147,7 +191,7 @@ let bfs map graph ghosts pos =
           else
             let directions = get_graph' graph pos in
             let next_gen =
-              fold_left
+              list_fold_left
                 (fun next_gen dir ->
                   let pos = next_pos dir pos in
                   if mem_pos pos ghosts then next_gen
@@ -160,7 +204,7 @@ let bfs map graph ghosts pos =
     | None -> None
     | Some directions ->
       let first_gen =
-        fold_left
+        list_fold_left
           (fun gen dir ->
             let pos = next_pos dir pos in
             if not (free map pos) then gen
@@ -173,17 +217,73 @@ let bfs map graph ghosts pos =
           | Some path -> Some (list_rev path)
       end
 
-let step graph world =
+let chase map graph ghosts pos fright_time  =
+  let rec loop old cur_gen next_gen distance =
+    match cur_gen with
+      | [] ->
+        begin match next_gen with
+          | [] -> None
+          | _ -> loop old next_gen [] (distance+1)
+        end
+      | (pos, path) :: cur_gen ->
+        if mem_pos pos old
+        then loop old cur_gen next_gen distance
+        else if mem_pos pos ghosts && distance < fright_time
+        then Some path
+        else
+          let directions = get_graph' graph pos in
+          let next_gen =
+            list_fold_left
+              (fun next_gen dir ->
+                let pos = next_pos dir pos in
+                (pos, dir::path) :: next_gen
+              ) next_gen directions
+          in
+          loop (pos :: old) cur_gen next_gen distance
+  in
+  match get_graph graph pos with
+    | None -> None
+    | Some directions ->
+      let first_gen =
+        list_fold_left
+          (fun gen dir ->
+            let pos = next_pos dir pos in
+            if not (free map pos) then gen
+            else (pos, [dir]) :: gen
+          ) [] directions
+      in
+      begin
+        match loop [pos] first_gen [] 1 with
+          | None -> None
+          | Some path -> Some (list_rev path)
+      end
+
+let step (graph) world =
   let (map, lambda, ghosts, _fruit) = world in
-  let (_vita, pos, lambda_dir, _lives, _score) = lambda in
+  let (vita, pos, lambda_dir, _lives, _score) = lambda in
   let ghost_pos =
     list_map (fun (_vita, pos, dir) -> next_pos dir pos) ghosts in
   let dir =
-    match
-      bfs map graph ghost_pos pos
-    with
-      | None -> lambda_dir
-      | Some (dir::_) -> dir
+    begin
+      if vita > 0
+      then
+        match chase map graph ghost_pos pos vita with
+          | None ->
+            begin match
+                bfs map graph ghost_pos pos
+              with
+                | None -> lambda_dir
+                | Some (dir::path) -> dir
+            end
+          | Some (dir :: path) -> dir
+      else
+        begin match
+            bfs map graph ghost_pos pos
+          with
+            | None -> lambda_dir
+            | Some (dir::path) -> dir
+        end
+    end
   in
   (graph, dir)
 
