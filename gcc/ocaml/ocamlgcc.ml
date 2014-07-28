@@ -65,6 +65,7 @@ let implementation ppf sourcefile outputprefix =
   let instrs =
     Pparse.file ppf inputfile Parse.implementation ast_impl_magic_number
     ++ print_if ppf Clflags.dump_parsetree Printast.implementation
+    ++ Open_include.open_include#structure
     ++ Lower_product.lower#structure
     ++ print_if ppf Clflags.dump_source Pprintast.structure
     ++ Typemod.type_implementation sourcefile outputprefix modulename env

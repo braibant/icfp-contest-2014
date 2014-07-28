@@ -2,6 +2,7 @@ open Simu
 
 open! Lib
 open! Lib_list
+open! Lib_vect
 open! Lib_pq
 
 (** {2 map}  *)
