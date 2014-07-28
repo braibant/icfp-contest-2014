@@ -1,3 +1,34 @@
+# Our design
+
+We wrote a Ghost in assembly (using a very thin assembler to have
+named labels and simple constants).
+
+For the Lambda-man IA, we wrote a compilator from OCaml to the List
+machine. Specifically, we use the OCaml compiler API to get the
+"lambda" representation (just after type-checking, inspectable with
+`ocamlc -dlambda -c foo.ml` on any OCaml sourcefile) to the lisp machine.
+
+We then wrote the Lambda-man IA using OCaml, in the subset that our
+compiler supports (more on this in the "# Compiler
+limitations" section). The IA is rather simple.
+
+PS: We spent quite a few hours implementing a simulator
+(interpreters for Gcc and Ghc, and game rules engine), but we couldn't
+make much use of it in the end. Time would have been better spent
+experimenting with the Javascript API directly.
+
+
+# Our productions
+
+The ghost (readable) assembly are in:
+  solution-source/genius.g
+  solution-source/genius2.g
+
+The lambda-man source is:
+  solution-source/graph_local.ml
+
+# Actually running our code
+
 We use
 - ocaml 4.01 (including compilerlibs (+unix +graphics))
 - ocamlfind
