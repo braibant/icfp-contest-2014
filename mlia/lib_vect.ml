@@ -51,3 +51,11 @@ let map_vect f ((tree, n) : 'a vect) =
       | Tree (Node, (left, right)) ->
         Tree (Node, (map f left, map f right))
   in (map f tree, n)
+
+
+(* map instances *)
+let vect_of_map map =
+  vect_of_list (list_map vect_of_list map)
+
+let get2 map (i,j) =
+  get_vect (get_vect map j) i

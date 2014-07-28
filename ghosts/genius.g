@@ -3,6 +3,11 @@
 ; a variant of brilliant.g
 ; avoid following another [lower-numbered] ghost
 
+
+;;; constant: scatter period, scatter mode time is 1 over this period
+        %scatter_period :: 6
+
+;;; variables
 %lastx :: [1]
 %lasty :: [2]
 %clkl :: [3]
@@ -33,9 +38,10 @@
 ;;; %next_return :: [255]
 
 ; clock
-  add %clkl, 8               ; clock high period 256/8 = 32
-  jgt clock_done, %clkl, 0
+  add %clkl, 6               ; clock high period 128/6 = 21 moves
+  jlt clock_done, %clkl, 128
   inc %clkh
+  mov %clkl, 0
 clock_done:
 
 ; detect sudden jumps in position and reset the clock
@@ -46,6 +52,11 @@ clock_done:
   add a, b
   add a, 1
   jlt detect_done, a, 3
+;;; sudden jump detected. if we are in invisible mode, that means
+;;; we were just eaten and in that case we don't reset the clock
+        int 3
+        int 6
+        jeq detect_done, a, 2
   mov %clkl, 0
   mov %clkh, 0
 detect_done:
@@ -64,10 +75,16 @@ detect_done:
   jeq chase, a, 2      ; invisible mode -> chase
                        ; normal mode -> scatter/chase according to clock
 
-; if clock-high = 0 mod 4, scatter
-  mov c, %clkh
-  and c, 3
-  jgt chase, c, 0
+; if clock-high = 0 mod %scatter_period, then scatter
+        mov d, %clkh
+        div d, %scatter_period
+        mul d, %scatter_period
+        mov c, %clkh
+        sub c, d
+        ;; mov e, %clkh            ; debug
+        ;; mov f, %clkl            ; debug
+        ;; int 8                   ; debug
+        jgt chase, c, 0
 
 scatter:
   jeq scatter_continue, %curmode, 1
@@ -105,7 +122,6 @@ chase:
   int 1     ; get lman's coordinates in A and B
 
 go_to:
-int 8
         mov c, a  ; c = lman.x
   mov d, b  ; d = lman.y
   int 3     ; get this ghost's index
@@ -184,6 +200,7 @@ testing_if_good_path:
         jeq go, a, 0
 
 secondary:
+        mov a, %secondary
 ;;; check if secondary direction is valid
 ;;; check for wall
         int 3
@@ -206,8 +223,10 @@ ret3:
         jeq go_secondary, a, 0
 
 random_dir:
-        int 3                   ; a contains ghost number
-        mov %test_dir, a                ; "random" direction
+;        mov %test_dir, %secondary
+;        inc %test_dir           ;first test the opposite of secondary
+        int 3
+        mov %test_dir, a
 random_loop:
         inc %test_dir
         and %test_dir, 3
@@ -223,7 +242,7 @@ ret4:
         int 7
         jeq random_loop, a, 0
 
-;;; go in %test_dir
+;;; go in direction %test_dir
         mov %secondary, %test_dir
         ;; fall through
 
@@ -272,7 +291,7 @@ checkghostloop:
         mov %return_neq, checkghostloop
         jmp check_presence
 checkghostdone:
-  mov a, %current_x
+        mov a, %current_x
   mov b, %current_y
   MOV [254], %current_dir      ; prepare the call to next for current dir
   MOV [255], lwalling0         ; prepare the call...
@@ -281,7 +300,7 @@ lwalling0:
   ;; MOV H, 44
   ;; INT 8
   INT 7
-  JEQ lwalling2, A, 0
+  JEQ lwalling1, A, 0
   MOV %good_dir_val, %current_dir
   INC %good_dir_num
 lwalling1:
@@ -324,7 +343,7 @@ return_ok_lambda:
 return_ok:
   MOV A,0
   MOV PC, [253]
-;; not_ok_ghost:
+not_ok_ghost:
 not_ok:
   MOV A,1
   MOV PC, [253]
@@ -338,9 +357,9 @@ continue:
 ;;   int 8               ; debug
 ;;   jmp return_ok       ; debug
 
-not_ok_ghost:                   ; debug
-        int 8                   ; debug
-        jmp not_ok              ; debug
+;; not_ok_ghost:                   ; debug
+;;         int 8                   ; debug
+;;         jmp not_ok              ; debug
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
