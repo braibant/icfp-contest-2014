@@ -132,24 +132,27 @@ let abs x =
 let distance a b =
   abs (fst a - fst b) + abs (snd a - snd b)
 
+let min_int (a: int) b = if a < b then a else b
+
 let ghost_near ghosts pos d =
   list_fold_left (fun acc ghost ->
-    acc || distance ghost pos < d
-  ) false ghosts
+    if distance ghost pos < d
+    then acc + 1
+    else acc
+  )  0 ghosts
 
 let bfs map graph ghosts pos =
-  let rec loop old cur_gen next_gen =
+  let rec loop old cur_gen next_gen distance =
     match cur_gen with
       | [] ->
         begin match next_gen with
           | [] ->
             None
-          | _ -> loop old next_gen []
+          | _ -> loop old next_gen [] (1 + distance)
         end
       | (pos, path) :: cur_gen ->
-        if mem_pos pos old then loop old cur_gen next_gen
-        else if ghost_near ghosts pos 5
-        then None
+        if mem_pos pos old
+        then loop old cur_gen next_gen distance
         else
           if good_square (get' map pos)
           then Some path
@@ -163,7 +166,7 @@ let bfs map graph ghosts pos =
                   else (pos, dir::path) :: next_gen
                 ) next_gen directions
             in
-            loop (pos :: old) cur_gen next_gen
+            loop (pos :: old) cur_gen next_gen distance
   in
   match get_graph graph pos with
     | None -> None
@@ -177,7 +180,7 @@ let bfs map graph ghosts pos =
           ) [] directions
       in
       begin
-        match loop [pos] first_gen [] with
+        match loop [pos] first_gen [] 0 with
           | None -> None
           | Some path -> Some (list_rev path)
       end
