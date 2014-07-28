@@ -1,6 +1,7 @@
 open Simu
 
 
+
 (** Standard Library *)
 type 'a option =
 | None
@@ -19,9 +20,6 @@ let rec nth' n = function
   | x::xs ->
     if n = 0 then x
     else nth' (n-1) xs
-
-
-
 
 let rec find p = function
   | [] -> None
@@ -71,6 +69,48 @@ let rec list_rev acc l =
     | t::q -> list_rev (t::acc) q
 
 let list_rev l = list_rev [] l
+
+(** {2 priority queue}*)
+
+type priority = int
+type 'a priority_queue =
+    Empty
+  | Node of (priority * 'a * 'a priority_queue * 'a priority_queue)
+
+let empty = Empty
+
+let rec insert queue prio elt =
+  match queue with
+      Empty -> Node(prio, elt, Empty, Empty)
+    | Node(p, e, left, right) ->
+      if prio <= p
+      then Node(prio, elt, insert right p e, left)
+      else Node(p, e, insert right prio elt, left)
+
+let (>>=) e f =
+  match e with
+    | None -> None
+    | Some e -> f e
+
+let rec remove_top = function
+  | Empty -> None
+  | Node(prio, elt, left, Empty) -> Some left
+  | Node(prio, elt, Empty, right) -> Some right
+  | Node(prio, elt, (Node(lprio, lelt, _, _) as left),
+         (Node(rprio, relt, _, _) as right)) ->
+    if lprio <= rprio
+    then
+      remove_top left >>= fun left ->
+      Some (Node(lprio, lelt, left, right))
+    else
+      remove_top right >>= fun right ->
+      Some (Node(rprio, relt, left, right))
+
+let extract_top = function
+  | Empty -> None
+  | Node(prio, elt, _, _) as queue ->
+    remove_top queue >>= fun q ->
+      Some (prio, elt, q)
 
 (** {2 map}  *)
 let get map (i,j) =
@@ -132,17 +172,17 @@ let make_graph map =
   in
   list_rev graph
 
-(* let map = *)
-(*   [ *)
-(*     [Wall ; Wall ; Wall ; Wall  ; Wall  ; Wall ; Wall ]; *)
-(*     [Wall ; Wall ; Empty; Wall  ; Wall  ; Wall ; Wall ]; *)
-(*     [Wall ; Empty; Empty; Empty ; Empty ; Pill; Wall ]; *)
-(*     [Wall ; Wall ; Empty ; Wall ; Wall  ; Wall ; Wall ]; *)
-(*     [Wall ; Wall ; Empty ; Wall ; Wall  ; Wall ; Wall ]; *)
-(*     [Wall ; Wall ; Wall ; Wall  ; Wall  ; Wall ; Wall ]; *)
-(*   ] *)
+let map =
+  [
+    [Wall ; Wall ; Wall ; Wall  ; Wall  ; Wall ; Wall ];
+    [Wall ; Wall ; Empty; Wall  ; Wall  ; Wall ; Wall ];
+    [Wall ; Empty; Empty; Empty ; Empty ; Empty; Wall ];
+    [Wall ; Wall ; Empty ; Wall ; Wall  ; Pill ; Wall ];
+    [Wall ; Wall ; Empty ; Wall ; Wall  ; Wall ; Wall ];
+    [Wall ; Wall ; Wall ; Wall  ; Wall  ; Wall ; Wall ];
+  ]
 
-(* let graph = make_graph map *)
+let graph = make_graph map
 
 (* let _ = *)
 (*   Printf.printf "\n"; *)
@@ -207,11 +247,11 @@ let bfs map graph ghosts pos =
             None
           | _ -> loop old next_gen []
         end
-      | (pos, start_dir) :: cur_gen ->
+      | (pos, path) :: cur_gen ->
         if mem_pos pos old then loop old cur_gen next_gen
         else
           if good_square (get' map pos)
-          then Some start_dir
+          then Some path
           else
             let directions = get_graph' graph pos in
             let next_gen =
@@ -219,7 +259,7 @@ let bfs map graph ghosts pos =
                 (fun next_gen dir ->
                   let pos = next_pos dir pos in
                   if mem_pos pos ghosts then next_gen
-                  else (pos, start_dir) :: next_gen
+                  else (pos, dir::path) :: next_gen
                 ) next_gen directions
             in
             loop (pos :: old) cur_gen next_gen
@@ -232,12 +272,16 @@ let bfs map graph ghosts pos =
           (fun gen dir ->
             let pos = next_pos dir pos in
             if not (free map pos) then gen
-            else (pos, dir) :: gen
+            else (pos, [dir]) :: gen
           ) [] directions
       in
-      loop [pos] first_gen []
+      begin
+        match loop [pos] first_gen [] with
+          | None -> None
+          | Some path -> Some (list_rev path)
+      end
 
-(* let tutu = bfs map graph [] (2,2)  *)
+let tutu = bfs map graph [] (2,2)
 (* let _ = get_graph tuto (2,2) *)
 (* let _ =    *)
 (*   let pos = (2,2) in *)
