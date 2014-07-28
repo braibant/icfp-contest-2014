@@ -2,7 +2,11 @@ open Simu
 
 open! Lib
 open! Lib_list
+open! Lib_vect
 open! Lib_pq
+
+let vect_map map =
+  vect_of_list (list_map vect_of_list map)
 
 (** {2 map}  *)
 let get map (i,j) =
@@ -14,7 +18,7 @@ let get map (i,j) =
     | Some line -> list_nth i line
 
 let get' map (i,j) =
-  list_nth' i (list_nth' j map)
+  get_vect (get_vect map j) i
 
 let next_pos direction (x, y) = match direction with
   | Up    -> (x,y-1)
@@ -57,24 +61,12 @@ let make_graph map =
           (0, [])
           line
       in
-      1 + j , list_rev l :: graph
+      1 + j , vect_of_list (list_rev l) :: graph
     )
       (0,[])
       map
   in
-  list_rev graph
-
-let map =
-  [
-    [Wall ; Wall ; Wall ; Wall  ; Wall  ; Wall ; Wall ];
-    [Wall ; Wall ; Empty; Wall  ; Wall  ; Wall ; Wall ];
-    [Wall ; Empty; Empty; Empty ; Empty ; Empty; Wall ];
-    [Wall ; Wall ; Empty ; Wall ; Wall  ; Pill ; Wall ];
-    [Wall ; Wall ; Empty ; Wall ; Wall  ; Wall ; Wall ];
-    [Wall ; Wall ; Wall ; Wall  ; Wall  ; Wall ; Wall ];
-  ]
-
-let graph = make_graph map
+  vect_of_list (list_rev graph)
 
 (* let _ = *)
 (*   Printf.printf "\n"; *)
@@ -103,13 +95,16 @@ let graph = make_graph map
 (*     Printf.printf "\n" *)
 (*   done;; *)
 
-let get_graph graph (i,j) =
-  match (list_nth j graph) with
-    | None -> None
-    | Some l ->  list_nth i  l
+(* let get_graph graph (i,j) = *)
+(*   match (list_nth j graph) with *)
+(*     | None -> None *)
+(*     | Some l ->  list_nth i  l *)
 
 let get_graph' graph (i,j) =
-  list_nth' i (list_nth' j graph)
+  get_vect (get_vect graph j) i
+
+let get_graph graph (i,j) =
+Some (get_graph' graph (i,j))
 
 let good_square square =
   square = Pill
@@ -122,9 +117,7 @@ let eq_pos : location -> location -> bool =
 let mem_pos (pos: location) (li: location list) = list_mem eq_pos pos li
 
 let free map pos =
-  match get map pos with
-    | None -> false
-    | Some c -> c <> Wall
+  get' map pos <> Wall
 
 let abs x =
   if x < 0 then 0 - x else x
@@ -140,6 +133,47 @@ let ghost_near ghosts pos d =
     then acc + 1
     else acc
   )  0 ghosts
+
+let chase map graph ghosts pos fright_time  =
+  let rec loop old cur_gen next_gen distance =
+    match cur_gen with
+      | [] ->
+        begin match next_gen with
+          | [] -> None
+          | _ -> loop old next_gen [] (distance+1)
+        end
+      | (pos, path) :: cur_gen ->
+        if mem_pos pos old
+        then loop old cur_gen next_gen distance
+        else if mem_pos pos ghosts && distance < fright_time
+        then Some path
+        else
+          let directions = get_graph' graph pos in
+          let next_gen =
+            list_fold_left
+              (fun next_gen dir ->
+                let pos = next_pos dir pos in
+                (pos, dir::path) :: next_gen
+              ) next_gen directions
+          in
+          loop (pos :: old) cur_gen next_gen distance
+  in
+  match get_graph graph pos with
+    | None -> None
+    | Some directions ->
+      let first_gen =
+        list_fold_left
+          (fun gen dir ->
+            let pos = next_pos dir pos in
+            if not (free map pos) then gen
+            else (pos, [dir]) :: gen
+          ) [] directions
+      in
+      begin
+        match loop [pos] first_gen [] 1 with
+          | None -> None
+          | Some path -> Some (list_rev path)
+      end
 
 let bfs map graph ghosts pos =
   let rec loop old cur_gen next_gen distance =
@@ -185,47 +219,6 @@ let bfs map graph ghosts pos =
           | Some path -> Some (list_rev path)
       end
 
-let chase map graph ghosts pos fright_time  =
-  let rec loop old cur_gen next_gen distance =
-    match cur_gen with
-      | [] ->
-        begin match next_gen with
-          | [] -> None
-          | _ -> loop old next_gen [] (distance+1)
-        end
-      | (pos, path) :: cur_gen ->
-        if mem_pos pos old
-        then loop old cur_gen next_gen distance
-        else if mem_pos pos ghosts && distance < fright_time
-        then Some path
-        else
-          let directions = get_graph' graph pos in
-          let next_gen =
-            list_fold_left
-              (fun next_gen dir ->
-                let pos = next_pos dir pos in
-                (pos, dir::path) :: next_gen
-              ) next_gen directions
-          in
-          loop (pos :: old) cur_gen next_gen distance
-  in
-  match get_graph graph pos with
-    | None -> None
-    | Some directions ->
-      let first_gen =
-        list_fold_left
-          (fun gen dir ->
-            let pos = next_pos dir pos in
-            if not (free map pos) then gen
-            else (pos, [dir]) :: gen
-          ) [] directions
-      in
-      begin
-        match loop [pos] first_gen [] 1 with
-          | None -> None
-          | Some path -> Some (list_rev path)
-      end
-
 let invalid map graph ghosts pos path =
   fst
     (list_fold_left (fun (invalid,pos) dir ->
@@ -241,6 +234,7 @@ let bfs_default map graph ghosts pos default f =
 
 let step (graph, path) world =
   let (map, lambda, ghosts, _fruit) = world in
+  let map = vect_map map in
   let (vita, pos, lambda_dir, _lives, _score) = lambda in
   let ghost_pos =
     list_map (fun (_vita, pos, dir) -> next_pos dir pos) ghosts in
