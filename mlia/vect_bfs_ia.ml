@@ -2,16 +2,26 @@ open! World_ffi
 
 open! Lib
 open! Lib_list
+open! Lib_vect
 
 (** Domain-specific library *)
 let eq_pos : location -> location -> bool =
   fun (x, y) (x', y') -> eq_int x x' && eq_int y y'
 
-let get map (i, j) =
+let vect_map map =
+  vect_of_list (list_map vect_of_list map)
+
+let map_of_vect vect =
+  list_of_vect (map_vect list_of_vect vect)
+
+let nth2 map (i, j) =
   list_nth' i (list_nth' j map)
 
+let get2 vect (i, j) =
+  get_vect (get_vect vect j) i
+
 let free map pos =
-  get map pos <> Wall
+  get2 map pos <> Wall
 
 let next_pos direction (x, y) = match direction with
   | Up    -> (x,y-1)
@@ -39,7 +49,7 @@ let bfs map ghosts pos =
       end
     | (pos, start_dir) :: cur_gen ->
       if mem_pos pos old then loop old cur_gen next_gen
-      else if good_square (get map pos) then Some start_dir
+      else if good_square (get2 map pos) then Some start_dir
       else
         let next_gen =
           list_fold_left
@@ -63,6 +73,7 @@ let bfs map ghosts pos =
 
 let step state world =
   let (map, lambda, ghosts, _fruit) = world in
+  let map = vect_map map in
   let (_vita, pos, lambda_dir, _lives, _score) = lambda in
   let ghost_pos =
     list_map (fun (_vita, pos, dir) -> next_pos dir pos) ghosts in
