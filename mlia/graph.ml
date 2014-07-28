@@ -4,50 +4,6 @@ open! Lib
 open! Liblist
 open! Lib_pq
 
-
-(** {2 priority queue}*)
-
-(* type priority = int *)
-(* type 'a priority_queue = *)
-(*     Empty *)
-(*   | Node of (priority * ('a * ('a priority_queue * 'a priority_queue))) *)
-
-(* let empty = Empty *)
-
-(* let rec insert queue prio elt = *)
-(*   match queue with *)
-(*       Empty -> Node(prio, (elt, (Empty, Empty))) *)
-(*     | Node(p, e, left, right) -> *)
-(*       if prio <= p *)
-(*       then Node(prio, elt, insert right p e, left) *)
-(*       else Node(p, e, insert right prio elt, left) *)
-
-(* let (>>=) e f = *)
-(*   match e with *)
-(*     | None -> None *)
-(*     | Some e -> f e *)
-
-(* let rec remove_top = function *)
-(*   | Empty -> None *)
-(*   | Node(prio, elt, left, Empty) -> Some left *)
-(*   | Node(prio, elt, Empty, right) -> Some right *)
-(*   | Node(prio, elt, (Node(lprio, lelt, _, _) as left), *)
-(*          (Node(rprio, relt, _, _) as right)) -> *)
-(*     if lprio <= rprio *)
-(*     then *)
-(*       remove_top left >>= fun left -> *)
-(*       Some (Node(lprio, lelt, left, right)) *)
-(*     else *)
-(*       remove_top right >>= fun right -> *)
-(*       Some (Node(rprio, relt, left, right)) *)
-
-(* let extract_top = function *)
-(*   | Empty -> None *)
-(*   | Node(prio, elt, _, _) as queue -> *)
-(*     remove_top queue >>= fun q -> *)
-(*       Some (prio, elt, q) *)
->>>>>>> Graph
-
 (** {2 map}  *)
 let get map (i,j) =
   if i < 0 || j < 0
