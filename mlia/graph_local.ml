@@ -2,7 +2,7 @@
 
 open! Lib
 open! Lib_list
-open! Lib_pq
+open! Lib_vect
 
 (** {2 map}  *)
 let get map (i,j) =
@@ -57,12 +57,12 @@ let make_graph map =
           (0, [])
           line
       in
-      1 + j , list_rev l :: graph
+      1 + j , vect_of_list (list_rev l) :: graph
     )
       (0,[])
       map
   in
-  list_rev graph
+  vect_of_list (list_rev graph)
 
 let map =
   [
@@ -103,13 +103,11 @@ let graph = make_graph map
 (*     Printf.printf "\n" *)
 (*   done;; *)
 
-let get_graph graph (i,j) =
-  match (list_nth j graph) with
-    | None -> None
-    | Some l ->  list_nth i  l
-
 let get_graph' graph (i,j) =
-  list_nth' i (list_nth' j graph)
+  get_vect  (get_vect graph j) i
+
+let get_graph graph (i,j) =
+   Some (get_graph' graph (i,j))
 
 let good_square square =
   square = Pill
@@ -197,6 +195,30 @@ let dfs map graph ghosts pos length fright=
 ;;
 
 
+let find_pill map graph pos =
+  let rec loop pos path dirs length =
+    if mem_pos pos path || length > 20
+    then None
+    else
+      begin
+        let content = get map pos in
+        match content with
+          | Some Pill
+          | Some Power_pill ->
+            Some (list_rev dirs)
+          | _ ->
+          let directions = get_graph' graph pos in
+          list_fold_left (fun acc dir ->
+            match acc with
+              | None ->
+                let npos = (next_pos dir pos) in
+                loop npos (pos::path) (dir::dirs) (1+ length)
+              | Some _ ->  acc
+          ) None directions
+      end
+  in
+  loop pos [] [] 0
+
 (* let _ = dfs map graph [] (2,2) 5 5;; *)
 
 let invalid map graph ghosts pos path =
@@ -206,27 +228,32 @@ let invalid map graph ghosts pos path =
       (invalid ||      list_mem eq_pos pos ghosts), pos
      ) (false, pos) path)
 
-let step (graph, path) world =
+let step (graph, path, lives) world =
   let (map, lambda, ghosts, _fruit) = world in
-  let (vita, pos, lambda_dir, _lives, _score) = lambda in
+  let (vita, pos, lambda_dir, nlives, _score) = lambda in
+  let path = if (lives: int) > nlives then  [] else path in
   let ghost_pos =
     list_map (fun (_vita, pos, dir) -> next_pos dir pos) ghosts in
   let dir,path =
-    (* if invalid map graph ghost_pos pos path || path = [] *)
-    (* then *)
+    if invalid map graph ghost_pos pos path || path = []
+    then
       begin
         match dfs map graph ghost_pos pos 10 vita with
-          | None | Some (_,[],_) -> lambda_dir, path
+          | None | Some (_,[],_) ->
+            begin match find_pill map graph pos with
+              | None | Some [] -> lambda_dir, []
+              | Some (dir::path) -> dir, path
+            end
           | Some (_,dir::path,_) ->  dir, path
       end
-    (* else match path with *)
-    (*   | dir::path -> dir, path *)
-    (*   | [] -> lambda_dir, [] *)
+    else match path with
+      | dir::path -> dir, path
+      | [] -> lambda_dir, []
   in
-  ((graph,path), dir)
+  ((graph,path,nlives), dir)
 
 let state =
   let (map, (lambda, (ghosts, _fruit))) = Simu.world in
-  make_graph map,[]
+  make_graph map,[], 3
 
 let main_gcc = (state, step)
