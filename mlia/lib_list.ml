@@ -57,3 +57,9 @@ let rec list_rev_append l acc =
     | t::q -> list_rev_append q (t::acc)
 
 let list_rev l = list_rev_append l []
+
+let rec list_rev_append_map f li =
+  match li with
+    | [] -> []
+    | x::xs ->
+      list_rev_append (f x) (list_rev_append_map f xs)
