@@ -1,7 +1,7 @@
 open Simu
 
 open! Lib
-open! Liblist
+open! Lib_list
 open! Lib_pq
 
 (** {2 map}  *)
@@ -126,9 +126,16 @@ let free map pos =
     | None -> false
     | Some c -> c <> Wall
 
-(* let is_some = function *)
-(*   | Some a -> a *)
-(*   | _ -> assert false *)
+let abs x =
+  if x < 0 then 0 - x else x
+
+let distance a b =
+  abs (fst a - fst b) + abs (snd a - snd b)
+
+let ghost_near ghosts pos d =
+  list_fold_left (fun acc ghost ->
+    acc || distance ghost pos < d
+  ) false ghosts
 
 let bfs map graph ghosts pos =
   let rec loop old cur_gen next_gen =
@@ -141,6 +148,8 @@ let bfs map graph ghosts pos =
         end
       | (pos, path) :: cur_gen ->
         if mem_pos pos old then loop old cur_gen next_gen
+        else if ghost_near ghosts pos 5
+        then None
         else
           if good_square (get' map pos)
           then Some path
@@ -214,37 +223,46 @@ let chase map graph ghosts pos fright_time  =
           | Some path -> Some (list_rev path)
       end
 
-let step (graph) world =
+let invalid map graph ghosts pos path =
+  fst
+    (list_fold_left (fun (invalid,pos) dir ->
+      let pos = next_pos dir pos in
+      (invalid ||      list_mem eq_pos pos ghosts), pos
+     ) (false, pos) path)
+
+let bfs_default map graph ghosts pos default f =
+  match bfs map graph ghosts pos with
+    | None -> default
+    | Some [] -> default
+    | Some (t::q) -> f t q
+
+let step (graph, path) world =
   let (map, lambda, ghosts, _fruit) = world in
   let (vita, pos, lambda_dir, _lives, _score) = lambda in
   let ghost_pos =
     list_map (fun (_vita, pos, dir) -> next_pos dir pos) ghosts in
-  let dir =
-    begin
-      if vita > 0
-      then
-        match chase map graph ghost_pos pos vita with
-          | None ->
-            begin match
-                bfs map graph ghost_pos pos
-              with
-                | None -> lambda_dir
-                | Some (dir::path) -> dir
-            end
-          | Some (dir :: path) -> dir
-      else
-        begin match
-            bfs map graph ghost_pos pos
-          with
-            | None -> lambda_dir
-            | Some (dir::path) -> dir
-        end
-    end
+  let dir,path =
+    if invalid map graph ghost_pos pos path || path = []
+    then
+      begin
+        if vita > 0
+          then match chase map graph ghost_pos pos vita with
+            | None | Some [] ->
+              bfs_default map graph ghost_pos pos (lambda_dir, [])
+                (fun dir path -> dir, path)
+            | Some (dir::path) -> dir, path
+        else
+          bfs_default map graph ghost_pos pos (lambda_dir, [])
+            (fun dir path -> dir, path)
+      end
+    else match path with
+      | dir::path -> dir, path
+      | [] -> lambda_dir, []
   in
-  (graph, dir)
+  ((graph,path), dir)
 
 let state =
   let (map, (lambda, (ghosts, _fruit))) = Simu.world in
-  make_graph map
+  make_graph map,[]
 
 let main_gcc = (state, step)
