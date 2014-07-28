@@ -1,0 +1,22 @@
+We use
+- ocaml 4.01 (including compilerlibs (+unix +graphics))
+- ocamlfind
+
+In code/
+
+- gcc/
+contains compiler ./ocamlgcc.native from OCaml (minus records, references, exceptions) to gcc.
+« make » compiles it.
+
+- mlia/
+is the IA of lambda man written in OCaml. In this directory do
+../gcc/ocamlgcc.native « an_ia.ml » --print --no-exec to get some gcc code
+
+- ghc/
+contains an assembler ./asm.byte of ghc. « make » compiles it.
+
+- ghosts/*.g
+contains the assembly of our ghost IA. It must go though ../ghc/asm.byte « an_ia.g » to give correct ghc code.
+
+- At top-level you can try
+ocamlbuild -use-ocamlfind main.native to get our not working own game simulator (you’ll need « cmdliner » to compile it)
