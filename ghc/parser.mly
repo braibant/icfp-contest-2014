@@ -41,7 +41,7 @@ instr:
     {Instr.(JUMP (EQ, target, x, y ))}
 | JGT target = LABEL COMMA x = argument COMMA y = argument
     {Instr.(JUMP (GT, target, x, y ))}
-| JMP target = LABEL { Instr.(MOV (PC, Label target)) }
+| JMP target = argument { Instr.(MOV (PC, target)) }
 | INT i = INTEGER
     {Instr.INT i}
 | HLT

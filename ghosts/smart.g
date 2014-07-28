@@ -1,9 +1,9 @@
-; idiot.g
+; smart.g
 
-; a variant of stupid.g
-
-; start by moving up for 6 steps, then right for 6 steps, etc,
-; then always move into the available direction closest to lambda-man's position
+; alternate between scatter mode and chase mode
+; in scatter mode, move out from current position in a direction that depends
+; on the ghost number
+; in chase mode, move into the direction of lambda-man.
 
 %lastx :: [1]
 %lasty :: [2]

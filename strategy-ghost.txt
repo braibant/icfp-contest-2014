@@ -54,3 +54,7 @@ pour scatter/chase: horloge globale sur 2 octets
 
 7. detecter les impasses et eviter de s'y engager si lambda-man n'y
    est pas
+-> brilliant.g
+
+8. detecter si un fantome se trouve deja dans le couloir et le traiter
+   comme une impasse dans ce cas.
