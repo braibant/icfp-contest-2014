@@ -2,7 +2,8 @@
 
 open! Lib
 open! Lib_list
-open! Lib_pq
+open! Lib_vect
+open! Lib_reach
 
 (** {2 map}  *)
 let get map (i,j) =
@@ -14,7 +15,7 @@ let get map (i,j) =
     | Some line -> list_nth i line
 
 let get' map (i,j) =
-  list_nth' i (list_nth' j map)
+  get_vect (get_vect map j) i
 
 let next_pos direction (x, y) = match direction with
   | Up    -> (x,y-1)
@@ -57,24 +58,24 @@ let make_graph map =
           (0, [])
           line
       in
-      1 + j , list_rev l :: graph
+      1 + j , vect_of_list (list_rev l) :: graph
     )
       (0,[])
       map
   in
-  list_rev graph
+  vect_of_list (list_rev graph)
 
-let map =
-  [
-    [Wall ; Wall ; Wall ; Wall  ; Wall  ; Wall ; Wall ];
-    [Wall ; Wall ; Empty; Wall  ; Wall  ; Wall ; Wall ];
-    [Wall ; Empty; Empty; Empty ; Pill ; Pill ; Wall ];
-    [Wall ; Wall ; Empty ; Wall ; Wall  ; Pill ; Wall ];
-    [Wall ; Wall ; Empty ; Wall ; Wall  ; Wall ; Wall ];
-    [Wall ; Wall ; Wall ; Wall  ; Wall  ; Wall ; Wall ];
-  ]
+(* let map = *)
+(*   [ *)
+(*     [Wall ; Wall ; Wall ; Wall  ; Wall  ; Wall ; Wall ]; *)
+(*     [Wall ; Wall ; Empty; Wall  ; Wall  ; Wall ; Wall ]; *)
+(*     [Wall ; Empty; Empty; Empty ; Pill ; Pill ; Wall ]; *)
+(*     [Wall ; Wall ; Empty ; Wall ; Wall  ; Pill ; Wall ]; *)
+(*     [Wall ; Wall ; Empty ; Wall ; Wall  ; Wall ; Wall ]; *)
+(*     [Wall ; Wall ; Wall ; Wall  ; Wall  ; Wall ; Wall ]; *)
+(*   ] *)
 
-let graph = make_graph map
+(* let graph = make_graph map *)
 
 (* let _ = *)
 (*   Printf.printf "\n"; *)
@@ -103,13 +104,11 @@ let graph = make_graph map
 (*     Printf.printf "\n" *)
 (*   done;; *)
 
-let get_graph graph (i,j) =
-  match (list_nth j graph) with
-    | None -> None
-    | Some l ->  list_nth i  l
-
 let get_graph' graph (i,j) =
-  list_nth' i (list_nth' j graph)
+  get_vect  (get_vect graph j) i
+
+let get_graph graph (i,j) =
+   Some (get_graph' graph (i,j))
 
 let good_square square =
   square = Pill
@@ -146,7 +145,7 @@ let ghost_near ghosts pos d =
    explore all the possible paths of length [length]
 *)
 
-let dfs map graph ghosts pos length fright=
+let dfs (map: square vect vect) graph ghosts_places pos length fright=
   let select (best: 'a option) (candidate: 'a option) : 'a option =
     match best with
       | None -> candidate
@@ -157,7 +156,7 @@ let dfs map graph ghosts pos length fright=
             if va < vb then candidate else best
         end
   in
-  let rec loop pos distance path dirs value fright =
+  let rec loop pos distance path dirs value fright ghost_places =
     if distance = length
     then Some (path, dirs, value)
     else if mem_pos pos path
@@ -167,15 +166,19 @@ let dfs map graph ghosts pos length fright=
       end
     else
       begin
-        let content = get map pos in
+        let ghosts, ghosts_places = match ghosts_places with
+          | [] -> [], []
+          | t:: q -> t, q
+        in
+        let content = get2 map pos in
         let value =
           if fright > 1 && mem_pos pos ghosts
           then value + 200
           else value in
         let value, fright  =
           match content with
-            | Some Pill -> value + 10, fright
-            | Some Power_pill -> value + 50, fright + 20
+            | Pill -> value + 10, fright
+            | Power_pill -> value + 50, fright + 20
             | _ -> value, fright
         in
         let value =
@@ -186,16 +189,42 @@ let dfs map graph ghosts pos length fright=
         let directions = get_graph' graph pos in
         list_fold_left (fun best dir ->
           let npos = next_pos dir pos in
-          let candidate = loop npos (distance + 1) (pos::path) (dir::dirs) value (fright - 1) in
+          let candidate =
+            loop npos (distance + 1) (pos::path) (dir::dirs) value (fright - 1) ghosts_places
+          in
           select best candidate
         ) (Some (path, dirs, value)) directions
       end
   in
-  match loop pos 0 [] [] 0 fright with
+  match loop pos 0 [] [] 0 fright ghosts_places with
     | None -> None
     | Some (path, dirs, value) -> Some (list_rev path, list_rev dirs, value)
 ;;
 
+
+let find_pill (map: square vect vect) graph pos =
+  let rec loop pos path dirs length =
+    if mem_pos pos path || length > 25
+    then None
+    else
+      begin
+        let content = get2 map pos in
+        match content with
+          | Pill
+          | Power_pill ->
+            Some (list_rev dirs)
+          | _ ->
+          let directions = get_graph' graph pos in
+          list_fold_left (fun acc dir ->
+            match acc with
+              | None ->
+                let npos = (next_pos dir pos) in
+                loop npos (pos::path) (dir::dirs) (1+ length)
+              | Some _ ->  acc
+          ) None directions
+      end
+  in
+  loop pos [] [] 0
 
 (* let _ = dfs map graph [] (2,2) 5 5;; *)
 
@@ -206,27 +235,41 @@ let invalid map graph ghosts pos path =
       (invalid ||      list_mem eq_pos pos ghosts), pos
      ) (false, pos) path)
 
-let step (graph, path) world =
+let small_distance = 3
+let small_distances = [0;1;2;3]
+
+let step (graph, path, lives) world =
   let (map, lambda, ghosts, _fruit) = world in
-  let (vita, pos, lambda_dir, _lives, _score) = lambda in
-  let ghost_pos =
-    list_map (fun (_vita, pos, dir) -> next_pos dir pos) ghosts in
+  let map = vect_of_map map in
+  let (vita, pos, lambda_dir, nlives, _score) = lambda in
+  let path = if (lives: int) > nlives then  [] else path in
+  let ghost_pos = list_map (fun (_vita, pos, dir) -> next_pos dir pos) ghosts in
+  let ghosts_pos_dir = list_map (fun (_vita, pos, dir) -> (pos, dir)) ghosts in
+  let ghost_places =
+    let at_dist (n : int) =
+      list_map (fun (pos, _dir) -> pos)
+        (reach map graph n ghosts_pos_dir) in
+    list_map at_dist small_distances in
   let dir,path =
-    (* if invalid map graph ghost_pos pos path || path = [] *)
-    (* then *)
+    if invalid map graph ghost_pos pos path || path = []
+    then
       begin
-        match dfs map graph ghost_pos pos 10 vita with
-          | None | Some (_,[],_) -> lambda_dir, path
+        match dfs map graph ghost_places pos 10 vita with
+          | None | Some (_,[],_) ->
+            begin match find_pill map graph pos with
+              | None | Some [] -> lambda_dir, []
+              | Some (dir::path) -> dir, path
+            end
           | Some (_,dir::path,_) ->  dir, path
       end
-    (* else match path with *)
-    (*   | dir::path -> dir, path *)
-    (*   | [] -> lambda_dir, [] *)
+    else match path with
+      | dir::path -> dir, path
+      | [] -> lambda_dir, []
   in
-  ((graph,path), dir)
+  ((graph,path,nlives), dir)
 
 let state =
   let (map, (lambda, (ghosts, _fruit))) = Simu.world in
-  make_graph map,[]
+  make_graph map,[], 3
 
 let main_gcc = (state, step)
