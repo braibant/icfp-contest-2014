@@ -51,3 +51,37 @@ contains the assembly of our ghost IA. It must go though ../ghc/asm.byte « an_
 
 - At top-level you can try
 ocamlbuild -use-ocamlfind main.native to get our not working own game simulator (you’ll need « cmdliner » to compile it)
+
+
+
+# Compiler limitations
+
+We wish tuples to be represented exactly as in the Lisp machines, to
+use the data passed by the game without an axiomatic FFI layer.
+
+For this purpose we had to disallow sum types with (strictly) more
+than one non-constant constructor. This is in fact not problematic, as
+any such variant can be turned into a sigma-type using a GADT:
+
+  type t =
+    | A
+    | B
+    | Foo of t
+    | Bar of u
+
+can be turned into
+
+  type t = T : 'a tag * 'a
+  and 'a tag =
+    | A : unit tag 
+    | B : unit tag
+    | Foo : t tag
+    | Bar : u tag
+
+This change is by design (we can neglect the tag of non-constant
+constructors, giving a lisp representation of (a, b) as (a . b)
+instead of (0 . (a . b)) with the 0 constructor).
+
+Other limitations are due to a lack of implementation time:
+  - records are not supported (could be done as closures to use environments)
+  - modules are not well-supported (handling them as tuple would be too inefficient)
