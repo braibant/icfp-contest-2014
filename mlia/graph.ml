@@ -136,11 +136,13 @@ let make_graph map =
 (*   [ *)
 (*     [Wall ; Wall ; Wall ; Wall  ; Wall  ; Wall ; Wall ]; *)
 (*     [Wall ; Wall ; Empty; Wall  ; Wall  ; Wall ; Wall ]; *)
-(*     [Wall ; Empty; Empty; Empty ; Empty ; Empty; Wall ]; *)
+(*     [Wall ; Empty; Empty; Empty ; Empty ; Pill; Wall ]; *)
 (*     [Wall ; Wall ; Empty ; Wall ; Wall  ; Wall ; Wall ]; *)
 (*     [Wall ; Wall ; Empty ; Wall ; Wall  ; Wall ; Wall ]; *)
 (*     [Wall ; Wall ; Wall ; Wall  ; Wall  ; Wall ; Wall ]; *)
 (*   ] *)
+
+(* let graph = make_graph map *)
 
 (* let _ = *)
 (*   Printf.printf "\n"; *)
@@ -155,7 +157,6 @@ let make_graph map =
 (*     Printf.printf "\n" *)
 (*   done;; *)
 
-(* let tuto = make_graph map *)
 
 (* let _ = *)
 (*   Printf.printf "\n"; *)
@@ -202,7 +203,8 @@ let bfs map graph ghosts pos =
     match cur_gen with
       | [] ->
         begin match next_gen with
-          | [] -> None
+          | [] ->
+            None
           | _ -> loop old next_gen []
         end
       | (pos, start_dir) :: cur_gen ->
@@ -235,6 +237,22 @@ let bfs map graph ghosts pos =
       in
       loop [pos] first_gen []
 
+(* let tutu = bfs map graph [] (2,2)  *)
+(* let _ = get_graph tuto (2,2) *)
+(* let _ =    *)
+(*   let pos = (2,2) in *)
+(*     match get_graph tuto (2,2) with *)
+(*     | None -> None *)
+(*     | Some directions -> *)
+(*       let first_gen = *)
+(*         fold_left *)
+(*           (fun gen dir -> *)
+(*             let pos = next_pos dir pos in *)
+(*             if not (free map pos) then gen *)
+(*             else (pos, dir) :: gen *)
+(*           ) [] directions *)
+(*       in Some first_gen *)
+(* ;; *)
 let step graph world =
   let (map, lambda, ghosts, _fruit) = world in
   let (_vita, pos, lambda_dir, _lives, _score) = lambda in
