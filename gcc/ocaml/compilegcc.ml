@@ -169,7 +169,7 @@ let rec compile env lambda =
     (compile env e1) @ (compile env e2) @
     [match prim with
      | Pmulint -> MUL | Psubint -> SUB | Paddint -> ADD | Pdivint -> DIV
-     | Pintcomp(Ceq) -> CEQ | Pintcomp(Cgt) -> CGTE | Pintcomp(Cge) -> CGT
+     | Pintcomp(Ceq) -> CEQ | Pintcomp(Cgt) -> CGT | Pintcomp(Cge) -> CGTE
      | _ -> assert false]
 
   | Lprim(Pnegint,[a]) -> (LDC 0)::(compile env a)@[SUB]
