@@ -58,12 +58,12 @@ let make_graph map =
           (0, [])
           line
       in
-      1 + j , list_rev l :: graph
+      1 + j , vect_of_list (list_rev l) :: graph
     )
       (0,[])
       map
   in
-  list_rev graph
+  vect_of_list (list_rev graph)
 
 let map =
   [
@@ -104,13 +104,17 @@ let graph = make_graph map
 (*     Printf.printf "\n" *)
 (*   done;; *)
 
-let get_graph graph (i,j) =
-  match (list_nth j graph) with
-    | None -> None
-    | Some l ->  list_nth i  l
+(* let get_graph graph (i,j) = *)
+(*   match (list_nth j graph) with *)
+(*     | None -> None *)
+(*     | Some l ->  list_nth i  l *)
 
 let get_graph' graph (i,j) =
-  list_nth' i (list_nth' j graph)
+  get_vect (get_vect graph j) i
+
+let get_graph graph (i,j) =
+Some (get_graph' graph (i,j))
+
 
 let good_square square =
   square = Pill
