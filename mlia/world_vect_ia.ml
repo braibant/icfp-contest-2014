@@ -138,7 +138,10 @@ let get_vect (t, n) i =
 let rec vect_of_list li =
   let rec consume li n =
     if n = 1 then
-      let (x::xs) = li in (Tree (Leaf, x), xs)
+      begin match li with
+        | [] -> assert false
+        | x::xs -> (Tree (Leaf, x), xs)
+      end
     else begin
       let mid = n / 2 in
       let left, li = consume li mid in
@@ -151,18 +154,37 @@ let rec vect_of_list li =
     | tree, [] -> (tree, len)
     | _, _::_ -> assert false
 
+let list_of_vect =
+  let rec prepend : type a . a vect_tree -> a list -> a list =
+  fun tree acc -> match tree with
+  | Tree (Leaf, v) -> v::acc
+  | Tree (Node, (left, right)) ->
+    prepend left (prepend right acc)
+  in fun (tree, _n) -> prepend tree []
+
+let map_vect f ((tree, n) : 'a vect) =
+  let rec map : type a b . (a -> b) -> a vect_tree -> b vect_tree =
+    fun f -> function
+      | Tree (Leaf, v) -> Tree (Leaf, f v)
+      | Tree (Node, (left, right)) ->
+        Tree (Node, (map f left, map f right))
+  in (map f tree, n)
 
 (** Domain-specific library *)
 let vect_of_map map =
-  (map, vect_of_list (list_map vect_of_list map))
+  vect_of_list (list_map vect_of_list map)
 
-let get (map, vect) (i, j) =
-  let s1 = nth i (nth j map) in
-  let _s2 = get_vect (get_vect vect j) i in
-  s1
+let map_of_vect vect =
+  list_of_vect (map_vect list_of_vect vect)
+
+let nth2 map (i, j) =
+  nth i (nth j map)
+
+let get2 vect (i, j) =
+  get_vect (get_vect vect j) i
 
 let free map pos =
-  get map pos <> Wall
+  get2 map pos <> Wall
 
 let next_pos direction (x, y) = match direction with
   | Up    -> (x,y-1)
@@ -179,7 +201,7 @@ let step state world =
   let (_vita, pos, _dir, _lives, _score) = lambda in
   let dir =
     match
-      find (fun dir -> free map (next_pos dir pos)) directions
+      find (fun dir -> Wall <> get2 map (next_pos dir pos)) directions
     with
       | None -> assert false
       | Some dir -> dir
