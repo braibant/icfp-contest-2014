@@ -53,6 +53,12 @@ let lower_type_record _loc vli = Ptype_record vli
 let lower_pat_record _loc (list, closed) = Ppat_record (list, closed)
 let lower_exp_record _loc (list, expo) = Pexp_record (list, expo)
 
+let include_module str =
+  let file =  (String.lowercase str ^ ".ml") in
+  let open Misc in
+  let open Config in
+  Pparse.file Format.std_formatter file Parse.implementation ast_impl_magic_number
+
 let lower = object
   inherit Ast_mapper.mapper as super
 
@@ -76,4 +82,11 @@ let lower = object
       | Ptyp_tuple tup ->
         { t with ptyp_desc = lower_typ_tuple loc tup }
       | other -> super#typ t
+
+  method structure_item s =
+    let loc = s.pstr_loc in
+    match s.pstr_desc with
+      | Pstr_open (_, {Asttypes.txt = Longident.Lident str; _}) ->
+        include_module str
+      | other -> super#structure_item s
 end
