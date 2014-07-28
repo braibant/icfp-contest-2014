@@ -22,7 +22,7 @@ let map = List.map (fun str -> List.map of_char (list_of_string str))
   [
        (*0123456789012345 *)
 (* 0 *) "XXXXXXXXXXXXXXXX";
-(* 1 *) "XXXXXXXX-XXXXXXX";
+(* 1 *) "XXXXXXX--XXXXXXX";
 (* 2 *) "XXXXXXXX-XXXXXXX";
 (* 3 *) "XXXXXXXX---XXXXX";
 (* 4 *) "XXXXXXXX-XXXXXXX";
@@ -32,4 +32,4 @@ let map = List.map (fun str -> List.map of_char (list_of_string str))
 (* 8 *) "XXXXXXXXXXXXXXXX";
   ]
 
-let map_start_pos = (8,1)
+let map_start_pos = (7,1)
