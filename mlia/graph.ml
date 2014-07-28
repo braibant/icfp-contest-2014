@@ -4,7 +4,7 @@ open Simu
 (** Standard Library *)
 type 'a option =
 | None
-| Some of 'a
+| Some of ('a);;
 
 let eq_int m n = (m : int) = n
 
@@ -74,6 +74,9 @@ let list_rev l = list_rev [] l
 
 (** {2 map}  *)
 let get map (i,j) =
+  if i < 0 || j < 0
+  then Some Wall
+  else
   match nth j map with
     | None -> None
     | Some line -> nth i line
@@ -95,39 +98,77 @@ type graph = (direction list) list list
 
 let make_graph map =
   let _, graph =
-    fold_left (fun (i,graph) line ->
+    fold_left (fun (j,graph) line ->
       let _, l =
-        fold_left (fun (j,graph) cell ->
+        fold_left (fun (i,graph) cell ->
           let pos = i,j in
-          if get' map pos <> Wall
-          then
-            begin
-              let edges =
-                fold_left
-                  (fun edges dir ->
-                    match get map (next_pos dir pos) with
-                      | None -> edges
-                      | Some c ->
-                        if Wall = c
-                        then edges
-                        else dir::edges
-                  )
-                  [] directions
-              in
-              1+j, edges::graph
-            end
-          else
-            1 + j, []::graph
+          match get map pos with
+            | None
+            | Some Wall ->  1 +i, [] :: graph
+            | Some _ ->
+              begin
+                let edges =
+                  fold_left
+                    (fun edges dir ->
+                      match get map (next_pos dir pos) with
+                        | None -> edges
+                        | Some c ->
+                          if Wall = c
+                          then edges
+                          else dir::edges
+                    )
+                    [] directions
+                in
+                1+i, edges::graph
+              end
         )
           (0, [])
           line
       in
-      1 + i ,l :: graph
+      1 + j , list_rev l :: graph
     )
       (0,[])
       map
   in
   list_rev graph
+
+(* let map = *)
+(*   [ *)
+(*     [Wall ; Wall ; Wall ; Wall  ; Wall  ; Wall ; Wall ]; *)
+(*     [Wall ; Wall ; Empty; Wall  ; Wall  ; Wall ; Wall ]; *)
+(*     [Wall ; Empty; Empty; Empty ; Empty ; Empty; Wall ]; *)
+(*     [Wall ; Wall ; Empty ; Wall ; Wall  ; Wall ; Wall ]; *)
+(*     [Wall ; Wall ; Empty ; Wall ; Wall  ; Wall ; Wall ]; *)
+(*     [Wall ; Wall ; Wall ; Wall  ; Wall  ; Wall ; Wall ]; *)
+(*   ] *)
+
+(* let _ = *)
+(*   Printf.printf "\n"; *)
+(*     for j = 0 to 5 do *)
+(*       for i = 0 to 6 do *)
+(*         begin match get map (i,j) with *)
+(*           | None -> invalid_arg (Printf.sprintf "%i %i" i j) *)
+(*           | Some Wall -> Printf.printf "#" *)
+(*           | Some _ -> Printf.printf " " *)
+(*         end; *)
+(*       done; *)
+(*     Printf.printf "\n" *)
+(*   done;; *)
+
+(* let tuto = make_graph map *)
+
+(* let _ = *)
+(*   Printf.printf "\n"; *)
+(*     for j = 0 to 5 do *)
+(*       for i = 0 to 6 do *)
+(*         begin match get_graph tuto (i,j) with *)
+(*           | None -> invalid_arg (Printf.sprintf "%i %i" i j) *)
+(*           | Some [] -> Printf.printf "#" *)
+(*           | Some _ -> Printf.printf " " *)
+(*         end; *)
+(*       done; *)
+(*     Printf.printf "\n" *)
+(*   done;; *)
 
 let get_graph graph (i,j) =
   match (nth j graph) with
