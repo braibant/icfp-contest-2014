@@ -86,7 +86,7 @@ let lower = object
   method structure_item s =
     let loc = s.pstr_loc in
     match s.pstr_desc with
-      | Pstr_open (_, {Asttypes.txt = Longident.Lident str; _}) ->
+      | Pstr_open (Asttypes.Override, {Asttypes.txt = Longident.Lident str; _}) ->
         include_module str
       | other -> super#structure_item s
 end

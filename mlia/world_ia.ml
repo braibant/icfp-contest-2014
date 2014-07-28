@@ -1,4 +1,4 @@
-open World_ffi
+open! World_ffi
 
 (** Standard Library *)
 let rec nth n = function
