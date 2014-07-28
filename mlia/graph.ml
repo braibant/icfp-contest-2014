@@ -1,116 +1,50 @@
 open Simu
 
+open! Lib
+open! Liblist
 
-
-(** Standard Library *)
-type 'a option =
-| None
-| Some of ('a);;
-
-let eq_int m n = (m : int) = n
-
-let rec nth n = function
-  | [] -> None
-  | x::xs ->
-    if n = 0 then Some x
-    else nth (n-1) xs
-
-let rec nth' n = function
-  | [] -> assert false
-  | x::xs ->
-    if n = 0 then x
-    else nth' (n-1) xs
-
-let rec find p = function
-  | [] -> None
-  | x::xs ->
-    if p x then Some x
-    else find p xs
-
-let rec mem
-    (eq: 'a -> 'a -> bool)
-    (x:'a) : 'a list -> bool
-  = function
-  | [] -> false
-  | y :: xs ->
-    eq x y || mem eq x xs
-
-
-type iter_status =
-| Continue
-| Stop
-
-let rec fold_left f acc = function
-  | [] -> acc
-  | x::xs -> fold_left f (f acc x) xs
-
-let rec fold_left_stop f acc = function
-  | [] -> Continue, acc
-  | x::xs ->
-    match f acc x with
-      | Stop, v -> Stop, v
-      | Continue, acc -> fold_left_stop f acc xs
-
-
-let rec list_map f = function
-  | [] -> []
-  | x::xs ->
-    let a = f x in a :: list_map f xs
-
-let list_length li =
-  let rec loop acc = function
-  | [] -> acc
-  | _::li -> loop (acc+1) li
-  in loop 0 li
-
-let rec list_rev acc l =
-  match l with
-    | [] -> acc
-    | t::q -> list_rev (t::acc) q
-
-let list_rev l = list_rev [] l
 
 (** {2 priority queue}*)
 
-type priority = int
-type 'a priority_queue =
-    Empty
-  | Node of (priority * 'a * 'a priority_queue * 'a priority_queue)
+(* type priority = int *)
+(* type 'a priority_queue = *)
+(*     Empty *)
+(*   | Node of (priority * ('a * ('a priority_queue * 'a priority_queue))) *)
 
-let empty = Empty
+(* let empty = Empty *)
 
-let rec insert queue prio elt =
-  match queue with
-      Empty -> Node(prio, elt, Empty, Empty)
-    | Node(p, e, left, right) ->
-      if prio <= p
-      then Node(prio, elt, insert right p e, left)
-      else Node(p, e, insert right prio elt, left)
+(* let rec insert queue prio elt = *)
+(*   match queue with *)
+(*       Empty -> Node(prio, (elt, (Empty, Empty))) *)
+(*     | Node(p, e, left, right) -> *)
+(*       if prio <= p *)
+(*       then Node(prio, elt, insert right p e, left) *)
+(*       else Node(p, e, insert right prio elt, left) *)
 
-let (>>=) e f =
-  match e with
-    | None -> None
-    | Some e -> f e
+(* let (>>=) e f = *)
+(*   match e with *)
+(*     | None -> None *)
+(*     | Some e -> f e *)
 
-let rec remove_top = function
-  | Empty -> None
-  | Node(prio, elt, left, Empty) -> Some left
-  | Node(prio, elt, Empty, right) -> Some right
-  | Node(prio, elt, (Node(lprio, lelt, _, _) as left),
-         (Node(rprio, relt, _, _) as right)) ->
-    if lprio <= rprio
-    then
-      remove_top left >>= fun left ->
-      Some (Node(lprio, lelt, left, right))
-    else
-      remove_top right >>= fun right ->
-      Some (Node(rprio, relt, left, right))
+(* let rec remove_top = function *)
+(*   | Empty -> None *)
+(*   | Node(prio, elt, left, Empty) -> Some left *)
+(*   | Node(prio, elt, Empty, right) -> Some right *)
+(*   | Node(prio, elt, (Node(lprio, lelt, _, _) as left), *)
+(*          (Node(rprio, relt, _, _) as right)) -> *)
+(*     if lprio <= rprio *)
+(*     then *)
+(*       remove_top left >>= fun left -> *)
+(*       Some (Node(lprio, lelt, left, right)) *)
+(*     else *)
+(*       remove_top right >>= fun right -> *)
+(*       Some (Node(rprio, relt, left, right)) *)
 
-let extract_top = function
-  | Empty -> None
-  | Node(prio, elt, _, _) as queue ->
-    remove_top queue >>= fun q ->
-      Some (prio, elt, q)
+(* let extract_top = function *)
+(*   | Empty -> None *)
+(*   | Node(prio, elt, _, _) as queue -> *)
+(*     remove_top queue >>= fun q -> *)
+(*       Some (prio, elt, q) *)
 
 (** {2 map}  *)
 let get map (i,j) =
@@ -281,22 +215,6 @@ let bfs map graph ghosts pos =
           | Some path -> Some (list_rev path)
       end
 
-let tutu = bfs map graph [] (2,2)
-(* let _ = get_graph tuto (2,2) *)
-(* let _ =    *)
-(*   let pos = (2,2) in *)
-(*     match get_graph tuto (2,2) with *)
-(*     | None -> None *)
-(*     | Some directions -> *)
-(*       let first_gen = *)
-(*         fold_left *)
-(*           (fun gen dir -> *)
-(*             let pos = next_pos dir pos in *)
-(*             if not (free map pos) then gen *)
-(*             else (pos, dir) :: gen *)
-(*           ) [] directions *)
-(*       in Some first_gen *)
-(* ;; *)
 let step graph world =
   let (map, lambda, ghosts, _fruit) = world in
   let (_vita, pos, lambda_dir, _lives, _score) = lambda in
@@ -307,9 +225,9 @@ let step graph world =
       bfs map graph ghost_pos pos
     with
       | None -> lambda_dir
-      | Some dir -> dir
+      | Some (dir::_) -> dir
   in
-  (Some graph, dir)
+  (graph, dir)
 
 let state =
   let (map, (lambda, (ghosts, _fruit))) = Simu.world in
