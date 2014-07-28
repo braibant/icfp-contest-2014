@@ -162,7 +162,13 @@ let rec compile env lambda =
 
   (** primitive arithmetic *)
   | Lprim(Pintcomp(Ceq),[a;Lconst(Const_pointer(0))]) ->
-    (compile env a)@[ATOM]
+    let test =
+      Lprim(Psequand, [
+        Lprim(Pisint, [a]);
+        Lprim(Pintcomp(Ceq), [a; Lconst(Const_base(Const_int(0)))]);
+      ])
+    in
+    compile env test
 
   | Lprim(Pmulint|Psubint|Paddint|Pdivint|Pintcomp(Ceq|Cgt|Cge)
           as prim,[e1;e2]) ->
