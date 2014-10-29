@@ -1,0 +1,231 @@
+# The ghost AI
+
+The ghost we submitted is the last of a series of increasingly
+sophisticated designs, each of which is an incremental enhancement of
+the previous one. Given the short amount of time available, we did not
+do a rewrite from scratch, no matter how much we wanted to. This
+method let us make a pretty good ghost with a small amount of work
+(about 3 man-days) but it's not without pitfalls: because serious
+testing was not an option, some huge bugs stayed undiscovered for
+quite some time.
+
+Like almost everyone in the competition, we wrote the ghosts directly
+in assembly code, with only a small tool to make the GHC assembly
+language more palatable: a macro-processor that implements symbolic
+labels (for jumps) and names (for arguments). The first feature
+allowed us to retain our sanity when inserting and deleting
+instructions in the code, while the second one let us use names for
+our variables stored in memory.
+
+1. Stupid
+
+Our first version is called "stupid". It starts with 6 steps up, 6
+steps right, 6 steps down, 6 steps left (in an attempt to get out of
+the initial box) then it always tries to move toward lambda-man. It
+restarts this algorithm every time it gets eaten.
+
+To implement it, we had to solve two interesting problems:
+1. Detect when the ghost gets eaten or a new round has started.
+2. Find out the direction closest to lambda-man's position.
+
+1.1. Detecting restarts
+
+Detecting when the ghost gets eaten or a new round is started is
+almost easy: just detect any sudden jump in position that is
+inconsistent with normal movement. This is done by getting the current
+position in (a,b) and having the previous position stored in
+([1],[2]). We subtract [1] from a and [2] from b, which yields two
+numbers in {-1, 0, 1}. Adding them together yields either -1 or 1
+because one of them must be zero and the other nonzero (the ghost has
+moved either vertically or horizontally). Adding one yields 0 or
+2. Any other value indicates that the ghost's position has jumped
+suddenly. An unsigned comparison with 3 is enough to check this
+condition. This algorithm is not exact: it will fail whenever the
+ghost gets eaten at a position very close to its starting point. We
+decided we could live with this imprecision.
+
+1.2. Computing the direction
+
+Computing the direction of lambda-man is a bit harder as it involves
+trigonometry. Since GHC lacks instructions to compute sines, cosines,
+tangents, and the like, we do it with addition, subtraction, and
+exclusive-or instead.
+
+We start by defining an angle alpha, encoded in units of 45 degrees.
+Alpha will be the middle of the quadrant where lambda-man is found (1,
+3, 5, or 7).
+
+The origin and orientation for alpha are the ones used by the INT 0
+instruction: 0 is up, 1 is upper-right, 2 is right, etc.
+
++-----------> X
+|   7  0  1
+|    \ | /
+|  6 - . - 2
+|    / | \
+|   5  4  3
+Y
+
+Consider
+   dx = lambdaman.x - ghost.x
+and
+   dy = lambdaman.y - ghost.y
+
+The correct answer depends on the signs of dx and dy (to determine
+in which quadrant lambda-man is) and the comparison of |dx| and |dy|
+(to determine which octant in this quadrant). The following table
+enumerates all the cases:
+
+dx sign | dy sign | |dx|>|dy| | direction
+   +    |    +    |     T     |  2 = 3-1
+   +    |    +    |     F     |  4 = 3+1
+   +    |    -    |     T     |  2 = 1+1
+   +    |    -    |     F     |  0 = 1-1
+   -    |    +    |     T     |  6 = 5+1
+   -    |    +    |     F     |  4 = 5-1
+   -    |    -    |     T     |  6 = 7-1
+   -    |    -    |     F     |  0 = 7+1 (modulo 8)
+
+I've decomposed the result in two values: alpha (1, 3, 5 or 7) and phi
+(+1 or -1). alpha can be computed by:
+
+  alpha = 1 + (6 if dx is negative) XOR (2 if dy is positive)
+
+and phi is simply a XOR of all three inputs: it is the product of the
+three signs of the input, taking - for T and + for F.
+The code simply computes alpha, phi, and the absolute values
+simultaneously, by testing the signs of dx and dy only once.
+Then just dividing the result by two yields the direction of
+lambda-man.
+
+We checked by hand that (as expected because the functions are
+continuous) we get correct results when lambda-man lies exactly in
+one of our 8 directions (i.e. when a sign is 0 or |dx| is equal to
+|dy|).
+
+In retrospect, we could probably get shorter code by simply
+implementing:
+
+  if |dx| > |dy| then
+    if dx positive then 2 else 6
+  else
+    if dy positive then 4 else 0
+
+1.3. Panic mode
+
+To complete the ghost's code, it tests the "fright mode" flag returned
+by interrupt 6, and reverses the direction if it's in fright mode,
+thus fleeing away from lambda-man instead of chasing him.
+
+2. Idiot
+
+Idiot is a very small variation on the Stupid ghost: it just tries to
+avoid banging its head on walls. If there is a wall in the direction
+chosen by Stupid, Idiot will try the other side of the quadrant where
+lambda-man lies.
+
+This new direction is easy to compute from the outputs of the Stupid
+code: the primary direction (the direction chosen by Stupid) is
+alpha + phi and the secondary direction (the other side of the quadrant)
+is alpha - phi.
+
+To have a look at the square that lies in a given direction, we used
+our first subroutine. Since the GHC processor doesn't have a stack, we
+had to manage the return address by hand, storing it in a global
+variable.
+
+3. Smart
+
+The Smart ghost uses a trick from the ghosts in the real PacMan
+game: alternate between scatter and chase. Each ghost maintains a
+"clock" by counting its execution cycles, and in 32 cycles out of 128,
+the ghost goes into "scatter" mode. In this mode, it sets a target
+point that depends on the ghost number (a different corner of the map
+for each ghost). Otherwise, it is in "chase" mode, where the target
+point is the coordinates of lambda-man.
+
+The goal of this system is to avoid having all the ghosts chasing
+behind lambda-man without ever blocking his path. By scattering from
+time to time, the ghosts have a better chance of surrounding
+lambda-man at some point.
+
+Note that the scatter modes of the ghosts start synchronized, but
+their clocks run at different speeds, so they will become
+unsynchronized as the game progresses. In addition, there is no way to
+know the size of the map, so we used an approximate notion of "corner
+of the map".
+
+Finally, when Smart is in panic mode (i.e. when lambda-man has eaten a
+power pill and is chasing the ghost) the ghost will run the scatter
+algorithm rather than just fleeing in the direction opposite to
+lambda-man. This is to disperse the ghosts, thus maximising the
+probability that some of them will escape lambda-man.
+
+3. Brilliant
+
+Brilliant is the ghost that adds the most important feature: before
+going into a given direction, it follows the corresponding corridor
+until it finds one of three things:
+
+1. lambda-man
+2. an intersection or a fork
+3. a dead end
+
+In cases 1 and 2, the ghost goes into that direction, while in case 3
+it will chose another direction: there's no point in going into a
+dead-end unless lambda-man is there.
+
+Unlike its predecessors, Brilliant will not only test the principal
+direction to avoid banging its head on walls, it also tests it to make
+sure it is not a U-turn (the rules of the game forbid U-turns for
+ghosts, except at the bottom of a dead end). This is done at lines 146
+to 178: if there is a wall in the primary direction, or the primary
+direction is a U-turn, or it's a dead-end without lambda-man, then
+take the secondary direction.
+
+At least that's the theory, because there is a nasty bug: after
+following the corridor, Brilliant will just ignore this information
+and take the principal direction anyway... not really brilliant after
+all!
+
+To follow a corridor from a starting point and a direction, we first
+make a step in that direction (lines 193 to 196) then look in the
+three allowed direction (excluding a U-turn) and count the number of
+non-wall tiles in %good_dir_num, recording one of them in
+%good_dir_val.
+
+Line 220 has a nasty bug: it should jump to lwalling1 rather than
+lwalling2. As a result, the second direction (90 degrees clockwise
+from the current direction) is never tested and the whole
+corridor-following code seldom returns a correct result.
+
+4. Genius
+
+Genius is a small but important variation on the Brilliant code: when
+following the corridor, check for the presence of other ghosts in
+front of the current ghost. If there is already a ghost going down
+that corridor, avoid entering it.
+
+This means that the ghosts will naturally disperse and try alternate
+routes to lambda-man, thus cutting of more of his escape paths.
+
+There is a difficulty here: the ghost doesn't know how many other
+ghosts there are, so it cannot query their position. We solved it by
+only testing for lower-numbered ghosts, that is ghost 0 ignores all
+other ghosts, ghost 1 only tests for presence of ghost 0, etc. It
+works pretty well because lower-numbered ghosts walk faster, so they
+will tend to be in front anyway.
+
+5. Genius2
+
+Since Genius tends to scatter naturally around lambda-man, it was
+natural to try a version that didn't alternate between scatter and
+chase phases, but did chase all the time (except when in panic mode,
+obviously). This is what Genius2 does; otherwise it is identical to
+Genius.
+
+6. Our submission
+
+Because we couldn't tell which of Genius or Genius2 was the best, we
+submitted a mix of the two: half our ghosts were Genius and the other
+half Genius2.
